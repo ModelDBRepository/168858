@@ -1,0 +1,11 @@
+load_file("nrngui.hoc")
+neuron_index=0
+custPass=0
+model_index=0
+task_index=0
+func go_button() {
+	printf("neuron_index=%d\ncustPass=%d\nmodel_index=%d\ntask_index=%d\nRUN()!!!\n",neuron_index,custPass,model_index,task_index)
+	return 1
+}
+load_file("make_gui.hoc")
+load_file("make_gui2.hoc")

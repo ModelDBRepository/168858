@@ -1,0 +1,62 @@
+hoc_root: /Users/pcoskren-home/Subversion/WearneLab/Publications/LuebkePaper/GeneratedHocFiles
+#	name	complete/apical/basal	young/old	x-microns-per-pixel	y-microns-per-pixel	z-microns-per-pixel	swc path	spinefile path	resting potential
+Aug3a-all	complete	OLD	.2	.2	.2	Aug3a/Aug3a-total.swc	Aug3a/Aug3a-total.txt	-58.22
+Aug3a-apical	apical	OLD	.2	.2	.2	Aug3a/Aug3a-apical.swc	Aug3a/Aug3a-apical-spines.txt	-58.22
+Aug3a-basal	basal	OLD	.2	.2	.2	Aug3a/Aug3a-basal.swc	Aug3a/Aug3a-basal-spines.txt	-58.22
+Aug3b-all	complete	OLD	.2	.2	.2	Aug3b/Aug3b.swc	Aug3b/Aug3b.txt	-66.0
+Aug3b-apical	apical	OLD	.2	.2	.2	Aug3b/Aug3b-apical.swc	Aug3b/Aug3b-spines-apical.txt	-66.0
+Aug3b-basal	basal	OLD	.2	.2	.2	Aug3b/Aug3b-basal.swc	Aug3b/Aug3b-spines-basal.txt	-66.0
+Aug3c-all	complete	OLD	.2	.2	.2	Aug3c/Aug3c_total.swc	Aug3c/Aug3c-spines.txt	-65.0
+Aug3c-apical	apical	OLD	.2	.2	.2	Aug3c/Aug3c_apical.swc	Aug3c/Aug3c-spines-apical.txt	-65.0
+Aug3c-basal	basal	OLD	.2	.2	.2	Aug3c/Aug3c_basal.swc	Aug3c/Aug3c-spines-basal.txt	-65.0
+Aug3e-all	complete	OLD	.25	.25	.2	Aug3e/Aug3e-total.swc	Aug3e/Aug3e-total.txt	-63.18
+Aug3e-apical	apical	OLD	.25	.25	.2	Aug3e/Aug3e-apical.swc	Aug3e/Aug3e-apical-spines.txt	-63.18
+Aug3e-basal	basal	OLD	.25	.25	.2	Aug3e/Aug3e-basal.swc	Aug3e/Aug3e-basal-spines.txt	-63.18
+Aug3f-all	complete	OLD	.2	.2	.2	Aug3f/Aug3f-total.swc	Aug3f/Aug3f-total.txt	-66.03
+Aug3f-apical	apical	OLD	.2	.2	.2	Aug3f/Aug3f-apical.swc	Aug3f/Aug3f-apical-spines.txt	-66.03
+Aug3f-basal	basal	OLD	.2	.2	.2	Aug3f/Aug3f-basal.swc	Aug3f/Aug3f-basal-spines.txt	-66.03
+Aug3g-all	complete	OLD	.2	.2	.2	Aug3g/Aug3g-total.swc	Aug3g/Aug3g-total.txt	-62.97
+Aug3g-apical	apical	OLD	.2	.2	.2	Aug3g/Aug3g-apical.swc	Aug3g/Aug3g-apical-spines.txt	-62.97
+Aug3g-basal	basal	OLD	.2	.2	.2	Aug3g/Aug3g-basal.swc	Aug3g/Aug3g-basal-spines.txt	-62.97
+Feb27f-apical	apical	OLD	.2	.2	.2	Feb27f/Feb27f_apical.swc	Feb27f/Feb27f_spines_apical.txt	-63.18
+Feb27n-all	complete	OLD	.2	.2	.2	Feb27n/Feb27n_all.swc	Feb27n/Feb27n_spines.txt	-62.14
+Feb27n-apical	apical	OLD	.2	.2	.2	Feb27n/Feb27n_apical.swc	Feb27n/Feb27n_spines_apical.txt	-62.14
+Feb27n-basal	basal	OLD	.2	.2	.2	Feb27n/Feb27n_basal.swc	Feb27n/Feb27n_spines_basal.txt	-62.14
+Dec15e-all	complete	YOUNG	.2	.2	.2	Dec15e/Dec15e-total.swc	Dec15e/Dec15e-total.txt	-65.36
+Dec15e-apical	apical	YOUNG	.2	.2	.2	Dec15e/Dec15e_apical.swc	Dec15e/Dec15e_apical.txt	-65.36
+Dec15e-basal	basal	YOUNG	.2	.2	.2	Dec15e/Dec15e_basal.swc	Dec15e/Dec15e_basal.txt	-65.36
+Jun7d-all	complete	YOUNG	.203	.203	.231	Jun7d/Jun7d_all.swc	Jun7d/Jun7d_all.txt	-67.53
+Jun7d-apical	apical	YOUNG	.203	.203	.231	Jun7d/Jun7d_apical.swc	Jun7d/Jun7d-spines-apical.txt	-67.53
+Jun7d-basal	basal	YOUNG	.203	.203	.231	Jun7d/Jun7d_basal.swc	Jun7d/Jun7d-spines-basal.txt	-67.53
+May31d-apical	apical	YOUNG	.203	.203	.231	May31d/May31d_apical.swc	May31d/May31d_spines_apical.txt	-60.25
+May31e-all	complete	YOUNG	.203	.203	.231	May31e/May31e_all.swc	May31e/May31e_spines.txt	-60.47
+May31e-apical	apical	YOUNG	.203	.203	.231	May31e/May31e_apical.swc	May31e/May31e_spines_apical.txt	-60.47
+May31e-basal	basal	YOUNG	.203	.203	.231	May31e/May31e_basal.swc	May31e/May31e_spines_basal.txt	-60.47
+May3c-all	complete	YOUNG	.2	.2	.2	May3c/May3c_all.swc	May3c/May3c_spines.txt	-64.55
+May3c-apical	apical	YOUNG	.2	.2	.2	May3c/May3c_apical.swc	May3c/May3c_spines_apical.txt	-64.55
+May3c-basal	basal	YOUNG	.2	.2	.2	May3c/May3c_basal.swc	May3c/May3c_spines_basal.txt	-64.55
+May3d-all	complete	YOUNG	.2	.2	.2	May3d/May3d_total.swc	May3d/May3d_spines.txt	-67.35
+May3d-apical	apical	YOUNG	.2	.2	.2	May3d/May3d_apical.swc	May3d/May3d_spines_apical.txt	-67.35
+May3d-basal	basal	YOUNG	.2	.2	.2	May3d/May3d_basal.swc	May3d/May3d_spines_basal.txt	-67.35
+May3g-all	complete	YOUNG	.25	.25	.2	May3g/May3g_all.swc	May3g/May3g_spines.txt	-53.88
+May3g-apical	apical	YOUNG	.25	.25	.2	May3g/May3g_apical.swc	May3g/May3g_spines_apical.txt	-53.88
+May3g-basal	basal	YOUNG	.25	.25	.2	May3g/May3g_basal.swc	May3g/May3g_spines_basal.txt	-53.88
+May3h-all	complete	YOUNG	.2	.2	.2	May3h/May3h_all.swc	May3h/May3h_spines.txt	-65.98
+May3h-apical	apical	YOUNG	.2	.2	.2	May3h/May3h_apical.swc	May3h/May3h_spines_apical.txt	-65.98
+May3h-basal	basal	YOUNG	.2	.2	.2	May3h/May3h_basal.swc	May3h/May3h_spines_basal.txt	-65.98
+May3i-all	complete	YOUNG	.25	.25	.2	May3i/May3i_all.swc	May3i/May3i_spines_all.txt	-62.19
+May3i-apical	apical	YOUNG	.25	.25	.2	May3i/May3i_apical.swc	May3i/May3i_spines_apical.txt	-62.19
+May3i-basal	basal	YOUNG	.25	.25	.2	May3i/May3i_basal.swc	May3i/May3i_spines_basal.txt	-62.19
+May3t-all	complete	YOUNG	.2	.2	.2	May3t/May3t_all.swc	May3t/May3t_spines.txt	-61.76
+May3t-apical	apical	YOUNG	.2	.2	.2	May3t/May3t_apical.swc	May3t/May3t_spines_apical.txt	-61.76
+May3t-basal	basal	YOUNG	.2	.2	.2	May3t/May3t_basal.swc	May3t/May3t_spines_basal.txt	-61.76
+May3j-all	complete	YOUNG	.2	.2	.2	May3j/May3j.swc	May3j/May3j_spines.txt	-64.00
+May3j-apical	apical	YOUNG	.2	.2	.2	May3j/May3j_apical.swc	May3j/May3j_spines_apical.txt	-64.00
+May3j-basal	basal	YOUNG	.2	.2	.2	May3j/May3j_basal.swc	May3j/May3j_spines_basal.txt	-64.00
+May3x-all	complete	YOUNG	.2	.2	.2	May3x/May3x_all.swc	May3x/May3x_spines.txt	-57.00
+May3x-apical	apical	YOUNG	.2	.2	.2	May3x/May3x_apical.swc	May3x/May3x_spines_apical.txt	-57.00
+May3x-basal	basal	YOUNG	.2	.2	.2	May3x/May3x_basal.swc	May3x/May3x_spines_basal.txt	-57.00
+# May3i-revised	complete	YOUNG	.25	.25	.2	May3i/DoronsIntegration/temp-correction-5.swc	May3i/DoronsIntegration/temp-correction-5.txt	-62.19
+# test-total	complete	YOUNG	.2	.2	.2	test/test-total.swc	-	-57.00
+# test-apical	apical	YOUNG	.2	.2	.2	test/test-total.swc	-	-57.00
+

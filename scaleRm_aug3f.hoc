@@ -1,0 +1,172 @@
+/****** 
+    aged neuron Aug3IR2f is the one that Aniruddha spent so much time fitting.  We don't 
+    want to fit passive parameters of each neuron anew to this model.  Instead, scale the 
+    Rm values of this model relative to the sizes of the optimized values in the HH 
+    passive parameter optimizations.
+    
+    Christina Weaver, Aug 30 2014
+******/
+
+func scaleRm_vsAug3f() {
+	if( $1 == 6 ) 	{ // dec15IR2e
+	    RMfac = 0.397317032
+	}
+	if( $1 == 7 ) 	{ // jun7d
+	    RMfac = 1.072474104
+	}
+	if( $1 == 8 ) 	{ // may3IR2d
+	    RMfac = 0.575547631
+	}
+	if( $1 == 9 ) 	{ // may3IR2h
+	    RMfac = 0.315299711
+	}
+	if( $1 == 10 ) 	{ // may3IR2i
+	    RMfac = 0.44686704
+	}
+	if( $1 == 11 ) 	{ // may3IR2t
+	    RMfac = 0.404313126
+	}
+	if( $1 == 0 ) 	{ // aug3IR2a
+	    RMfac = 0.72718628
+	}
+	if( $1 == 1 ) 	{ // aug3c
+	    RMfac = 0.67030056
+	}
+	if( $1 == 2 ) 	{ // aug3IR2e
+	    RMfac = 0.849040584
+	}
+	if( $1 == 3 ) 	{ // aug3IR2f
+	    RMfac = 1
+	}
+	if( $1 == 4 ) 	{ // aug3IR2g
+	    RMfac = 0.698930209
+	}
+	if( $1 == 5 ) 	{ // feb27IR2n
+	    RMfac = 1.23158431
+	}
+
+	return RMfac
+}
+
+
+
+
+func scaleCm_vsAug3f() {
+	if( $1 == 6 ) 	{ // dec15IR2e
+	    CMfac = 1.842065654
+	}
+	if( $1 == 7 ) 	{ // jun7d
+	    CMfac = 2.743216805
+	}
+	if( $1 == 8 ) 	{ // may3IR2d
+	    CMfac = 1.737475659
+	}
+	if( $1 == 9 ) 	{ // may3IR2h
+	    CMfac = 2.133695652
+	}
+	if( $1 == 10 ) 	{ // may3IR2i
+	    CMfac = 3.74588612
+	}
+	if( $1 == 11 ) 	{ // may3IR2t
+	    CMfac = 2.876590946
+	}
+	if( $1 == 0 ) 	{ // aug3IR2a
+	    CMfac = 0.754346912
+	}
+	if( $1 == 1 ) 	{ // aug3c
+	    CMfac = 1.623757851
+	}
+	if( $1 == 2 ) 	{ // aug3IR2e
+	    CMfac = 0.94736087
+	}
+	if( $1 == 3 ) 	{ // aug3IR2f
+	    CMfac = 1
+	}
+	if( $1 == 4 ) 	{ // aug3IR2g
+	    CMfac = 0.96420649
+	}
+	if( $1 == 5 ) 	{ // feb27IR2n
+	    CMfac = 1.282665046
+	}
+
+	return CMfac
+}
+
+
+
+/*********************************************
+
+	scaling Cm as suggested by the customized HH model parameters, then applying to the 
+	aug3f Cm = .833333 that Aniruddha determined, leads to some young neurons with high 
+	firing.  Plus it seems unlikely that the Cm value would vary by THAT much in 
+	young vs. aged neurons without Jennie seeing it in the time constant.  So readjust
+	the parameter:  Reduce the customized scale factor for young neurons by 25%.
+	Note that aged neurons are scaled by the original 'customized passive' scale factor.
+	
+*********************************************/	
+func scaleCmYg75_vsAug3f() {
+
+	if( $1 == 6 ) 	{ // dec15IR2e
+	    CMfac = 0.921032827
+	}
+	if( $1 == 7 ) 	{ // jun7d
+	    CMfac = 1.371608403
+	}
+	if( $1 == 8 ) 	{ // may3IR2d
+	    CMfac = 0.86873783
+	}
+	if( $1 == 9 ) 	{ // may3IR2h
+	    CMfac = 1.066847826
+	}
+	if( $1 == 10 ) 	{ // may3IR2i
+	    CMfac = 1.87294306
+	}
+	if( $1 == 11 ) 	{ // may3IR2t
+	    CMfac = 1.438295473
+	}
+	
+	// aged neurons:  scale by the originally calculated amount
+	if( $1 == 0 ) 	{ // aug3IR2a
+	    CMfac = 0.754346912
+	}
+	if( $1 == 1 ) 	{ // aug3c
+	    CMfac = 1.623757851
+	}
+	if( $1 == 2 ) 	{ // aug3IR2e
+	    CMfac = 0.94736087
+	}
+	if( $1 == 3 ) 	{ // aug3IR2f
+	    CMfac = 1
+	}
+	if( $1 == 4 ) 	{ // aug3IR2g
+	    CMfac = 0.96420649
+	}
+	if( $1 == 5 ) 	{ // feb27IR2n
+	    CMfac = 1.282665046
+	}
+
+	return CMfac
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

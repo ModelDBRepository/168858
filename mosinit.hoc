@@ -1,0 +1,13 @@
+load_file("nrngui.hoc")
+
+neuron_index=0
+custPass=0
+model_index=2	// Traub baseline
+task_index=0
+func go_button() {
+    printf("neuron_index=%d\ncustPass=%d\ntask_index=%d\nRUN()!!!\n",neuron_index,custPass,model_index,task_index)
+    run_YadavTraub(neuron_index,custPass,task_index)
+    return 1
+}
+load_file("coskren_make_gui.hoc")
+

@@ -1,0 +1,1586 @@
+/*****************************************************************************
+
+    This file contains functions implementing a linear distribution 
+    of channel conductances.
+
+    Christina Weaver
+    Feb 2006
+    last updated Jun '07
+
+NOTE:  NEURON does not consider the values 0 and 1 to be separate nodes.  
+       Instead, the values of any range variables at those points is 
+       equal to the value assumed at the nearest node.  As a result 
+       there will be a slight discontinuity of the linear variation 
+       of the range variables at section ends.  To minimize this 
+       discontinuity you can increase NSEG in all the sections, but be 
+       warned that this could cause your simulations to run much more 
+       slowly.
+
+
+    Procedures defined below include:
+
+    applysec_slope()	After the appropriate slope and intercept have 
+			been determined for this particular section, 
+			apply the linear function to the desired range 
+			variable.	
+    assign_slope2all()	Write a matlab file that determines the appropriate 
+			conductance parameters throughout the dendrite, to 
+			apply the specified global conductance slope and 
+			intercept to the entire dendrite.  No parameter 
+			values are actually changed in this procedure.
+    BParea()		Calculate the area between the backpropagation 
+			curve and the straight line V = minV (default -80).  
+			This is measured in each segment as the maximum 
+			voltage observed over the entire simulation.
+    calc_global_slope()	Given the conductance values of the proximal and 
+			distal dendritic sections, calculate the appropriate 
+			slope from these values and the length of the 
+			dendrite.
+    findsec_slope()	Determine the appropriate slope and intercept 
+			for this section, and apply the linear change to 
+			the section.
+    linear_bakerKCAdec_ratios()    Apply the conductance ratios referred 
+				   to as "bakerKCAdec" linearly throughout 
+				   the dendrite.
+    print_cond_linscale()    Print the conductance values with distance 
+			     for all neuron compartments.
+    set_cond_linear()   Apply this global slope and intercept to the 
+			specified conductance type, for all dendritic 
+			segments.
+    total_dend_cond()	Calculate the total amount of conductance of the 
+			specified channel type.  That is, multiply g_bar * 
+			surface area of each dendritic section.
+
+
+*****************************************************************************/
+
+objref fin
+VERBOSE = 0
+most_distal = 0
+most_proximal = 0
+
+/******************************************************************
+
+    applysec_slope()
+
+    After the appropriate slope and intercept have been determined 
+    for this particular section, apply the linear function to the 
+    desired range variable.  If the proposed conductance value is 
+    negative, it is instead set to zero.
+
+    input	$s1	section name
+		$2	slope
+		$3	intercept
+		$4	index of range variable
+
+    0 : gbar_naf
+    1 : gbar_kdr
+    2 : gbar_kc
+    3 : phi_cad		// not a range variable (phi equivalent to Kp_cad from Av-Ron)
+    4 : beta_cad		// not a range variable (beta equivalent to RCa_cad from Av-Ron)
+    5 : gbar_ka
+    6 : gbar_cal
+    7 : gbar_nap
+    8 : g_pas
+    9 : gbar_cat
+   10 : gbar_km
+   11 : gbar_k2
+   12 : gbar_kahp
+   13 : gbar_h
+
+******************************************************************/
+proc applysec_slope() { local m, y0, idx
+
+    m   = $2
+    y0  = $3
+    idx = $4
+
+    forsec $s1 {
+        for(x) {
+
+            // if we execute this command on x==1
+            //if( x == 1 ) continue
+
+	    if( idx == 0 && ismembrane("naf") ) {
+                gbar_naf(x) = m*x + y0
+                if( gbar_naf(x) < 0 ) gbar_naf(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_naf(%g) = %g\n",x,gbar_naf(x))
+		continue		
+	    }
+	    if( idx == 1 && ismembrane("kdr") ) {
+                gbar_kdr(x) = m*x + y0
+                if( gbar_kdr(x) < 0 ) gbar_kdr(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_kdr(%g) = %g\n",x,gbar_kdr(x))
+		continue		
+	    }
+	    if( idx == 2 && ismembrane("kc") ) {
+                gbar_kc(x) = m*x + y0
+                if( gbar_kc(x) < 0 ) gbar_kc(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_kc(%g) = %g\n",x,gbar_kc(x))
+		continue		
+	    }
+
+	    // phi & beta (i.e. Avron's Kp and Rca) are not range variables; skip over idx == 3 or 4
+
+	    if( idx == 5 && ismembrane("ka") ) {
+                gbar_ka(x) = m*x + y0
+                if( gbar_ka(x) < 0 ) gbar_ka(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_ka(%g) = %g\n",x,gbar_ka(x))
+		continue		
+	    }
+	    if( idx == 6 && ismembrane("cal") ) {
+                gbar_cal(x) = m*x + y0
+                if( gbar_cal(x) < 0 ) gbar_cal(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_cal(%g) = %g\n",x,gbar_cal(x))
+		continue		
+	    }
+	    if( idx == 7 && ismembrane("nap") ) {
+                gbar_nap(x) = m*x + y0
+                if( gbar_nap(x) < 0 ) gbar_nap(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_nap(%g) = %g\n",x,gbar_nap(x))
+		continue		
+	    }
+	    if( idx == 8 && ismembrane("pas") ) {
+                g_pas(x) = m*x + y0
+                if( g_pas(x) < 0 ) g_pas(x) = 0
+		if( VERBOSE ) printf("\t\tSetting g_pas(%g) = %g\n",x,g_pas(x))
+		continue		
+	    } else {
+ 	        if( idx == 8 && ismembrane("pasR") ) {
+                    g_pasR(x) = m*x + y0
+                    if( g_pasR(x) < 0 ) g_pasR(x) = 0
+		    if( VERBOSE ) printf("\t\tSetting g_pasR(%g) = %g\n",x,g_pasR(x))
+		    continue		
+                }
+	    }
+	    if( idx == 9 && ismembrane("cat") ) {
+                gbar_cat(x) = m*x + y0
+                if( gbar_cat(x) < 0 ) gbar_cat(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_cat(%g) = %g\n",x,gbar_cat(x))
+		continue		
+	    }
+	    if( idx == 10 && ismembrane("km") ) {
+                gbar_km(x) = m*x + y0
+                if( gbar_km(x) < 0 ) gbar_km(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_km(%g) = %g\n",x,gbar_km(x))
+		continue		
+	    }
+	    if( idx == 11 && ismembrane("k2") ) {
+                gbar_k2(x) = m*x + y0
+                if( gbar_k2(x) < 0 ) gbar_k2(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_k2(%g) = %g\n",x,gbar_k2(x))
+		continue		
+	    }
+	    if( idx == 12 && ismembrane("kahp") ) {
+                gbar_kahp(x) = m*x + y0
+                if( gbar_kahp(x) < 0 ) gbar_kahp(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_kahp(%g) = %g\n",x,gbar_kahp(x))
+		continue		
+	    }
+	    if( idx == 13 && ismembrane("ar") ) {
+                gbar_ar(x) = m*x + y0
+                if( gbar_ar(x) < 0 ) gbar_ar(x) = 0
+		if( VERBOSE ) printf("\t\tSetting gbar_ar(%g) = %g\n",x,gbar_ar(x))
+		continue		
+	    }
+        }
+    }
+}
+
+/******************************************************************
+
+    calc_global_slope()
+
+    Given the conductance values of the proximal and distal dendritic 
+    sections, calculate the appropriate slope from these values and 
+    the length of the dendrite.
+
+    input	$1	proximal conductance value (distance = 0)
+                $2	most distal conductance value (distance = 
+			end of dendrite)
+
+******************************************************************/
+func calc_global_slope() {  local s_rad, chgC, chgD, Pdist, Ddist, slp, segID
+
+    soma { 
+        distance() 
+        Pdist = distance(1)
+	if( VERBOSE ) printf("Proximal distance set to %g\n",Pdist)
+    }
+
+    strdef lng_name
+    Ddist = find_longest_dend(lng_name,segID)
+
+    chgD = Ddist - Pdist
+    chgC = $2 - $1
+
+    slp = chgC / chgD
+
+    return slp
+
+
+}
+
+
+/******************************************************************
+
+    calc_global_slopefac()
+
+    Given the values of the proximal and distal dendritic 
+    sections relative to the soma (e.g. '2' for twice the soma value), 
+    calculate the appropriate factor to apply to each compartment's 
+    maximal conductances.
+
+    Let the value of a certain conductance in the soma be g0.  Suppose that conductance
+    at the most proximal dendritic segments (distance x0) is defined by k0 * g0, and k1 * g0
+    at the most distal segments (distance x1).
+
+    Then if dendritic conductances are to be scaled linearly, they will be
+    defined by    y1 - y0 = m * (x1-x0)		i.e.
+
+		  (k1-k0) * g0 
+                  -------	= m
+                  (x1-x0)
+
+    Then for any dendritic point at a distance x*, the appropriate conductance to apply is:
+
+        y* - y0 = m * (x* - x0); suppose y = k* * g0.  Then
+
+             (k1-k0) 
+        k* = ------- * (x* - x0) + k0
+             (x1-x0)
+
+    The values k0 are stored in int_vec;  store the value of the first term (the 'slope scale factor')
+    in slp_vec.  The values k1 are stored in sec_vec, defined in linear_migliore_ratios() below.
+
+
+    input	$o1	vector of proximal conductances, relative to soma value(distance = 0) (int_vec)
+                $o2	vector of most distal conductance, relative to soma value (distance = 
+			end of dendrite) (sec_vec)
+                $o3	vector of slope factors, slp_vec
+
+******************************************************************/
+proc calc_global_slopefac() {  local s_rad, chgC, chgD, Pdist, Ddist, slp, segID, i
+
+    soma { 
+        distance() 
+    }
+
+    strdef lng_name, shrt_name
+    Ddist = find_longest_dend(lng_name,segID)
+    most_distal = Ddist
+    Pdist = find_shortest_dend(shrt_name,segID)
+    most_proximal = Pdist
+
+    chgD = Ddist - Pdist
+
+    $o3 = new Vector()
+    for i = 0, $o1.size()-1 {
+        chgC = $o2.x[i]-$o1.x[i]
+        slp  = chgC / chgD
+        $o3.append(slp)
+    }
+
+/***
+printf("Finished calc_global_slopefac.  Given dendrites from %g to %g;\nint_vec = \n",most_proximal,most_distal)
+$o1.printf
+printf(" and sec_vec\n")
+$o2.printf
+printf("\nWe find slp_vec=\n")
+$o3.printf
+***/
+
+}
+
+
+/******************************************************************
+
+    findsec_slope()
+
+    Determine the appropriate slope and intercept for this section, 
+    and apply the linear change to the section.
+
+    input	$s1	section name
+		$2	global slope
+		$3	global intercept
+                $4	index of conductance type to change
+
+******************************************************************/
+proc findsec_slope() { local m, g0, y0, y1, m_lcl
+
+    soma { 
+        distance() 
+        s_end = distance(.5)
+    }
+    
+
+    m = $2
+    g0 = $3
+
+    forsec $s1 {
+        y0 = g0 + m*(distance(0)-s_end)
+        y1 = g0 + m*(distance(1)-s_end)
+        m_lcl = y1-y0
+
+        if( VERBOSE) {
+            printf("For section %s with Length %g and distance from soma %g,\n",secname(),L,distance(0)-s_end)
+            printf("\tGlobal slope %g, intcpt %g becomes local slope %g, local intcpt %g\n",m,g0,m_lcl,y0)
+        }
+        applysec_slope($s1,m_lcl,y0,$4)
+    }
+}
+
+
+/*******************************************************************
+
+    set_cond_linear()
+
+    Apply this global slope and intercept to the specified conductance 
+    type, for all dendritic segments.
+
+    input	$1	index of conductance type (see applysec_slope 
+			for list)
+		$2	global slope to apply
+		$3	intercept value for the most proximal dendrite 
+			section
+
+*******************************************************************/
+proc set_cond_linear() {
+
+    forsec dendritic {
+	ifsec "soma" continue
+
+        findsec_slope(secname(),$2,$3,$1)
+    }
+    copy_slope_intercept($1,$2,$3)
+}
+
+
+/********************************************************************
+
+    assign_slope2all()
+  
+    Write a matlab file that determines the appropriate conductance 
+    parameters throughout the dendrite, to apply the specified global 
+    conductance slope and intercept to the entire dendrite.  No 
+    parameter values are actually changed in this procedure.
+
+    input	$1	global slope
+		$2	global intercept
+		$s3	file basename for output
+
+********************************************************************/
+proc assign_slope2all() { local i, s_rad
+
+    soma { 
+        distance() 
+        s_rad = distance(1)
+    }
+
+    strdef finname
+
+    sprint(finname,"checklin_%s.m",$s3)
+    fin = new File()
+    fin.wopen(finname)
+
+    //findsec_slope("dend[0]",$1,$2)
+    //findsec_slope("dend[1]",$1,$2)
+    //findsec_slope("dend[2]",$1,$2)
+
+    forsec dendritic {
+        fin.printf("%s = [ \n",secname())
+            for(x) {
+                if( ismembrane("pas")) { 
+                    fin.printf("%g %g %g\n",x,distance(x)-s_rad,g_pas(x))
+                } else {
+                    if( ismembrane("pasR")) { 
+                        fin.printf("%g %g %g\n",x,distance(x)-s_rad,g_pasR(x))
+                    }
+                }
+	    }
+        fin.printf("];\n")
+    }
+
+    /***
+    fin.printf("plot(dend0(:,2),dend0(:,3),dend1(:,2),dend1(:,3),dend2(:,2),dend2(:,3));\n")
+    fin.printf("legend('dend[0]','dend[1]','dend[2]');\n")
+    fin.printf("m = %g; intcpt = %g;\n",$1,$2)
+    fin.printf("ttl = sprintf('Changing g_{pas}:  Slope %%g, intercept %%g',m,intcpt);\n")
+    fin.printf("title(ttl);\n")
+    ***/
+
+    fin.close()
+}
+
+
+
+/********************************************************************
+
+    print_cond_linscale()
+  
+    Print the conductance values with distance for all neuron compartments.
+
+    input	$1	index of conductance type
+                $s2	if writing M-file, suffix for parameter
+
+********************************************************************/
+proc print_cond_linscale() { local idx, cval, i, tot
+
+    strdef strg, lgstrg
+
+    idx = $1 
+    if( idx == 0 )  {
+	printf("Values of g_Na:\n")
+        strg = "Na"
+    }
+    if( idx == 1 )  {
+	printf("Values of g_KDR:\n")
+	strg = "KDR"
+    }
+    if( idx == 2 )  {
+	printf("Values of g_KCa:\n")
+	strg = "KCa"
+    }
+    if( idx == 3 )  {
+	printf("Values of Kp (Ca influx):\n")
+	strg = "Kp"
+    }
+    if( idx == 4 )  {
+	printf("Values of beta (Ca efflux):\n")
+	strg = "beta"
+    }
+    if( idx == 5 )  {
+	printf("Values of g_KA:\n")
+    	strg = "KA"
+    }
+
+    if( idx == 6 )  {
+	printf("Values of g_CaL:\n")
+	strg = "Ca"
+    }
+    if( idx == 7 )  {
+	printf("Values of g_NaP:\n")
+	strg = "NaP"
+    }
+    if( idx == 8 )  {
+	printf("Values of g_Leak:\n")
+	strg = "Lk"
+    }
+    if( idx == 9 )  {
+	printf("Values of gbar_caT:\n")
+	strg = "CaT"
+    }
+
+    soma { 
+        distance() 
+        s_rad = distance(1)
+    }
+
+    forall {
+        print secname(), nseg, " segments"
+	for(x) {
+            cval = -1 
+	    if( idx == 0 && ismembrane("naf") ) cval = gbar_naf(x) 
+	    if( idx == 1 && ismembrane("kdr") ) cval = gbar_kdr(x) 
+	    if( idx == 2 && ismembrane("kc") ) cval = gbar_kc(x) 
+
+	    // Kp and beta are not range variables; skip over idx == 3 or 4
+
+	    if( idx == 5 && ismembrane("ka") ) cval = gbar_ka(x) 
+	    if( idx == 6 && ismembrane("cal") ) cval = gbar_cal(x) 
+	    if( idx == 7 && ismembrane("nap") ) cval = gbar_nap(x) 
+	    if( idx == 8 && ismembrane("pas") ) cval = g_pas(x) 
+	    if( idx == 8 && ismembrane("pasR") ) cval = g_pasR(x) 
+	    if( idx == 9 && ismembrane("cat") ) cval = gbar_cat(x) 
+	    if( idx == 10 && ismembrane("k2") ) cval = gbar_k2(x) 
+	    if( idx == 11 && ismembrane("km") ) cval = gbar_km(x) 
+	    if( idx == 12 && ismembrane("kahp") ) cval = gbar_kahp(x) 
+	    if( idx == 13 && ismembrane("ar") ) cval = gbar_ar(x) 
+
+	    printf("\t[%g]\t%g um\t%g\n",x,distance(x),cval)
+
+	}
+
+    }
+   tot = total_dend_cond(idx,$s2)
+
+
+}
+
+
+
+/********************************************************************
+
+    print_lincond_smry()
+  
+    Print the conductance values with distance for all neuron compartments.
+
+    input	$1	index of conductance type
+
+********************************************************************/
+proc print_lincond_smry() { local idx, cval, i, tot
+
+    strdef strg, lgstrg
+
+    for idx = 0, 8 {
+        cval = -1
+
+	if( idx == 0 )  { strg = "Na" }
+    if( idx == 1 )  {
+	strg = "KDR"
+    }
+    if( idx == 2 )  {
+	strg = "KCa"
+    }
+    if( idx == 3 )  {
+	strg = "Kp"
+    }
+    if( idx == 4 )  {
+	strg = "beta"
+    }
+    if( idx == 5 )  {
+    	strg = "KA"
+    }
+
+    if( idx == 6 )  {
+	strg = "Ca"
+    }
+    if( idx == 7 )  {
+	strg = "NaP"
+    }
+    if( idx == 8 )  {
+	strg = "Lk"
+    }
+
+	    if( idx == 0 && ismembrane("naf") ) cval = dendritic.object(0).gbar_naf(0) / soma.gbar_naf
+	    if( idx == 1 && ismembrane("kdr") ) cval = dendritic.object(0).gbar_kdr(0) / soma.gbar_kdr 
+	    if( idx == 2 && ismembrane("kc") ) cval = dendritic.object(0).gbar_kc(0)  / soma.gbar_kc
+
+	    // phi and beta are not range variables; skip over idx == 3 or 4
+        if( idx == 3 && ismembrane("cad") ) cval = phi_cad
+        if( idx == 4 && ismembrane("cad") ) cval = beta_cad
+
+	    if( idx == 5 && ismembrane("ka") ) cval = dendritic.object(0).gbar_ka(0)   / soma.gbar_ka
+	    if( idx == 6 && ismembrane("cal") ) cval = dendritic.object(0).gbar_cal(0)   / soma.gbar_cal
+	    if( idx == 7 && ismembrane("nap") ) cval = dendritic.object(0).gbar_nap(0)   / soma.gbar_nap
+	    if( idx == 8 && ismembrane("pas") ) cval = dendritic.object(0).g_pas(0)   / soma.g_pas
+	    if( idx == 8 && ismembrane("pasR") ) cval = dendritic.object(0).g_pasR(0)   / soma.g_pasR
+	    if( idx == 9 && ismembrane("cat") ) cval = dendritic.object(0).gbar_cat(0)   / soma.gbar_cat
+	    if( idx == 10 && ismembrane("k2") ) cval = dendritic.object(0).gbar_k2(0)   / soma.gbar_k2
+	    if( idx == 11 && ismembrane("km") ) cval = dendritic.object(0).gbar_km(0)   / soma.gbar_km
+	    if( idx == 12 && ismembrane("kahp") ) cval = dendritic.object(0).gbar_kahp(0)   / soma.gbar_kahp
+	    if( idx == 13 && ismembrane("ar") ) cval = dendritic.object(0).gbar_ar(0)   / soma.gbar_ar
+
+	    printf("%s: %g\n",strg,cval)
+
+    }
+
+}
+
+
+/*********************************************************************
+
+    BParea()
+
+    Calculate the area between the backpropagation curve and the 
+    straight line V = minV (default -80).  This is 
+    measured in each segment as the maximum voltage observed over 
+    the entire simulation.
+
+*********************************************************************/
+func BParea() { local sum, minV
+
+    sum = 0
+    minV = -80
+
+    forsec dendritic {
+
+        if( !ismembrane("mar")) continue 
+	if( VERBOSE ) print secname()
+        for(x) {
+            if( x==0 || x==1 ) continue
+            sum += L*(val_mar(x)-minV)/(nseg)
+	    if( VERBOSE ) print "\t",x,nseg,L/(nseg),val_mar(x),sum
+        }
+    }
+
+    return sum
+}
+
+
+/*********************************************************************
+
+    total_dend_cond()
+
+    Calculate the total amount of conductance of the specified channel 
+    type.  That is, multiply g_bar * surface area of each dendritic 
+    section.
+
+
+    input	$1	index of conductance type
+		$s2	channel suffix (e.g. "kdr" for gbar_kdr)
+
+*********************************************************************/
+func total_dend_cond() { local sum, minV, idx
+
+strdef strg 
+
+    idx = $1
+    sum = 0
+
+    forsec dendritic {
+
+        if( !ismembrane($s2)) continue 
+        print secname()
+        for(x) {
+            if( x==0 || x==1 ) continue
+            cval = -1 
+	    if( idx == 0 && ismembrane("naf") ) cval = gbar_naf(x) 
+	    if( idx == 1 && ismembrane("kdr") ) cval = gbar_kdr(x) 
+	    if( idx == 2 && ismembrane("kc") ) cval = gbar_kc(x) 
+
+	    // phi and beta are not range variables; skip over idx == 3 or 4
+
+	    if( idx == 5 && ismembrane("ka") ) cval = gbar_ka(x) 
+	    if( idx == 6 && ismembrane("cal") ) cval = gbar_cal(x) 
+	    if( idx == 7 && ismembrane("nap") ) cval = gbar_nap(x) 
+	    if( idx == 8 && ismembrane("pas") ) cval = g_pas(x) 
+	    if( idx == 8 && ismembrane("pasR") ) cval = g_pasR(x) 
+	    if( idx == 9 && ismembrane("cat") ) cval = gbar_cat(x) 
+	    if( idx == 10 && ismembrane("k2") ) cval = gbar_k2(x) 
+	    if( idx == 11 && ismembrane("km") ) cval = gbar_km(x) 
+	    if( idx == 12 && ismembrane("kahp") ) cval = gbar_kahp(x) 
+	    if( idx == 13 && ismembrane("ar") ) cval = gbar_ar(x) 
+
+	    if( cval < 0 ) continue
+
+            sum += cval*area(x)
+	    printf("\t%g:\t%g * %g = %g\n",x,cval,area(x),cval*area(x))
+        }
+    }
+
+    if( idx == 0 )  strg = "Na"
+    if( idx == 1 )  strg = "KDR"
+    if( idx == 2 )  strg = "KCa"
+    if( idx == 3 )  strg = "phi"
+    if( idx == 4 )  strg = "beta"
+    if( idx == 5 )  strg = "KA"
+    if( idx == 6 )  strg = "CaL"
+    if( idx == 7 )  strg = "NaP"
+    if( idx == 8 )  strg = "Leak"
+    if( idx == 9 )  strg = "CaT"
+    if( idx == 10 )  strg = "K2"
+    if( idx == 11 )  strg = "KM"
+    if( idx == 12 )  strg = "KAHP"
+    if( idx == 13 )  strg = "AR"
+
+    printf("Total %s conductance = %g mS\n",strg,sum)
+
+    return sum
+}
+
+// these vectors store the dendritic conductance info:  slopes & intercepts.
+objref slp_vec, int_vec, sec_vec
+slp_vec = new Vector()
+int_vec = new Vector()
+sec_vec = new Vector()
+
+
+/********************************************************************
+
+    copy_slope_intercept
+
+    We've just applied the global slope & intercept to the dendrite. 
+    Now copy that information into the 'slp_vec' and 'int_vec' 
+    vectors.
+
+    input	$1	index of conductance type (see applysec_slope 
+			for list)
+		$2	global slope that was applied
+		$3	intercept value for the most proximal dendrite 
+			section
+
+********************************************************************/
+proc copy_slope_intercept() {
+
+    if( $1 <= 2 ) {
+        slp_vec.x[$1] = $2
+        int_vec.x[$1] = $3
+        if( VERBOSE ) printf("index %d -> slope, int [%d] = %g, %g\n",$1,$1,slp_vec.x[$1],int_vec.x[$1])
+    } else {
+        if( $1 > 4 && $1 < 9 ) {
+            slp_vec.x[$1-2] = $2
+            int_vec.x[$1-2] = $3
+            if( VERBOSE ) printf("index %d -> slope, int [%d] = %g, %g\n",$1,$1-2,slp_vec.x[$1-2],int_vec.x[$1-2])
+        } else {
+            if( VERBOSE ) printf("index %d NOT APPLICABLE for slope/intercept vector.\n",$1)
+        }
+    }
+}
+
+
+/******************************************************************
+
+    define_dend_slope()
+
+    Given the proximal and distal dendritic values, apply the associated linearly scaled conductance.
+
+    input	$1	index:  which conductance to change?
+
+    if( idx == 0 )  strg = "Na"
+    if( idx == 1 )  strg = "KDR"
+    if( idx == 2 )  strg = "KCa"
+    if( idx == 3 )  strg = "phi"
+    if( idx == 4 )  strg = "beta"
+    if( idx == 5 )  strg = "KA"
+    if( idx == 6 )  strg = "CaL"
+    if( idx == 7 )  strg = "NaP"
+    if( idx == 8 )  strg = "Leak"
+
+		$2	proximal conductance value
+		$3	distal conductance 
+
+******************************************************************/
+proc define_dend_slope() { local slp, idx, Pval, Dval
+
+    idx  = $1
+    Pval = $2
+    Dval = $3
+
+    	slp = calc_global_slope(Pval,Dval)
+    	set_cond_linear(idx,slp,Pval)
+    	//print_cond_linscale(idx,"L","")
+    	//printf("\n\n")
+
+}
+
+
+
+/******************************************************************
+
+    linear_migliore_ratios()
+
+    Jun 11 '07
+
+    Based on data found in Migliore & Shepherd '02 review, plus a 
+    few other references on neocortical pyramidal cells (mostly layer 5).
+
+******************************************************************/
+proc linear_migliore_ratios() { local slp, idx, Pval, Dval
+
+    int_vec = new Vector()
+    sec_vec = new Vector()
+
+    // component 0 of int_vec and sec_vec
+    pri_nafac = 1
+    sec_nafac = $2
+    int_vec.append(pri_nafac)
+    sec_vec.append(sec_nafac)
+
+    pri_kfac = 1
+    sec_kfac = $3
+    int_vec.append(pri_kfac)
+    sec_vec.append(sec_kfac)
+
+    pri_kcafac = 1
+    sec_kcafac = 1
+    int_vec.append(pri_kcafac)
+    sec_vec.append(sec_kcafac)
+
+    // append for phi_cad and beta_cad, in case we need it later.
+    int_vec.append(0)
+    sec_vec.append(0)
+    int_vec.append(0)
+    sec_vec.append(0)
+
+    // component 5 of int_vec and sec_vec
+    pri_kafac = 1
+    sec_kafac = 2
+    int_vec.append(pri_kafac)
+    sec_vec.append(sec_kafac)
+
+    pri_cafac = 1
+    sec_cafac = 1
+    int_vec.append(pri_cafac)
+    sec_vec.append(sec_cafac)
+
+    pri_napfac = pri_nafac
+    sec_napfac = sec_nafac
+    int_vec.append(pri_napfac)
+    sec_vec.append(sec_napfac)
+
+    pri_pasfac = 1
+    sec_pasfac = 1
+    int_vec.append(pri_pasfac)
+    sec_vec.append(sec_pasfac)
+
+    // component 9 of int_vec and sec_vec
+    pri_locafac = 1
+    sec_locafac = 1 
+    int_vec.append(pri_locafac)
+    sec_vec.append(sec_locafac)
+
+    pri_k2fac = 1
+    sec_k2fac = 1 
+    int_vec.append(pri_k2fac)
+    sec_vec.append(sec_k2fac)
+
+    pri_kmfac = 1
+    sec_kmfac = 1 
+    int_vec.append(pri_kmfac)
+    sec_vec.append(sec_kmfac)
+
+    pri_kahpfac = 1
+    sec_kahpfac = 1 
+    int_vec.append(pri_kahpfac)
+    sec_vec.append(sec_kahpfac)
+
+    // component 13 of int_vec and sec_vec
+    pri_hfac = 1
+    sec_hfac = $1 
+    int_vec.append(pri_hfac)
+    sec_vec.append(sec_hfac)
+
+    pri_skahpfac = 1
+    sec_skahpfac = 1
+    int_vec.append(pri_skahpfac)
+    sec_vec.append(sec_skahpfac)
+
+//printf("From linear_migliore_ratios()\n")
+    calc_global_slopefac(int_vec,sec_vec,slp_vec)
+    apply_linear_ratios()
+}
+
+
+/*****************************************************************
+
+    apply_one_dendcond()
+
+    input	$1	index of channel to set
+		$2	conductance value in the soma
+
+    Use data contained in int_vec and slp_vec (see calc_global_slopevec)
+    to set the conductance value throughout the dendrites.
+
+*****************************************************************/
+proc apply_one_dendcond() { local distx, idx
+
+    strdef tg
+
+    idx = $1
+    forsec dendritic {
+        for(x) {
+            distx = distance(x)
+
+            kstar = slp_vec.x[idx] * (distx - most_proximal) + int_vec.x[idx]
+
+                if( idx == 0 && ismembrane("naf") ) {
+                    tg = "Na"
+                    gbar_naf(x) = $2 * kstar
+                }
+                if( idx == 1 && ismembrane("kdr") ) {
+                    tg = "KDR"
+                    gbar_kdr(x) = $2 * kstar
+                }
+                if( idx == 2 && ismembrane("kc") ) {
+                    tg = "KCa"
+                    gbar_kc(x) = $2 * kstar
+                }
+                if( idx == 5 && ismembrane("ka") ) {
+                    tg = "KA"
+                    gbar_ka(x) = $2 * kstar
+                }
+                if( idx == 6 && ismembrane("cal") ) {
+                    tg = "CaL"
+                    gbar_cal(x) = $2 * kstar
+                }
+                if( idx == 7 && ismembrane("nap") ) {
+                    tg = "NaP"
+                    gbar_nap(x) = $2 * kstar
+                }
+                if( idx == 8 && ismembrane("pas") ) {
+                    tg = "Pas"
+                    g_pas(x) = $2 * kstar
+                }
+                if( idx == 8 && ismembrane("pasR") ) {
+                    tg = "PasR"
+                    g_pasR(x) = $2 * kstar
+                }
+               if( idx == 9 && ismembrane("cat") ) {
+                    tg = "CaT"
+                    gbar_cat(x) = $2 * kstar
+                }
+                if( idx == 10 && ismembrane("k2") ) {
+                    tg = "K2"
+                    gbar_k2(x) = $2 * kstar
+                }
+                if( idx == 11 && ismembrane("km") ) {
+                    tg = "KM"
+                    gbar_km(x) = $2 * kstar
+                }
+                if( idx == 12 && ismembrane("kahp") ) {
+                    tg = "KAHP"
+                    gbar_kahp(x) = $2 * kstar
+                }
+                if( idx == 13 && ismembrane("ar") ) {
+                    tg = "H"
+                    gbar_ar(x) = $2 * kstar
+                }
+                if( idx == 14 && ismembrane("skahp") ) {
+                    tg = "SKAHP"
+                    gbar_skahp(x) = $2 * kstar
+                }
+	        if( VERBOSE && idx == 5 ) {  
+	            printf("%s, [%g\t%g]:  %s:  gbar %g * kstar %g = %g\n",secname(),x,distx,tg,$2,kstar,$2*kstar)
+        	}
+
+            }
+        }
+        forsec axon {
+	    if( ismembrane("kc")) gbar_kc=0 
+	    if( ismembrane("skahp"))  gbar_skahp=0 
+	    if( ismembrane("kahp"))   gbar_kahp=0 
+	    if( ismembrane("cal"))    gbar_cal=0 
+	    if( ismembrane("ar"))     gbar_ar=0 
+	    if( ismembrane("cat"))    gbar_cat=0 
+	    if( ismembrane("km"))     gbar_km=0
+	}
+        forsec "AxonInitseg" {
+	    if( ismembrane("kc")) gbar_kc=0 
+	    if( ismembrane("skahp"))  gbar_skahp=0 
+	    if( ismembrane("kahp"))   gbar_kahp=0 
+	    if( ismembrane("cal"))    gbar_cal=0 
+	    if( ismembrane("ar"))     gbar_ar=0 
+	    if( ismembrane("cat"))    gbar_cat=0 
+	    if( ismembrane("km"))     gbar_km=0
+	}
+
+}
+
+
+/*****************************************************************
+
+    apply_linear_ratios()
+
+    Assuming pri*fac and sec*fac have been calculated according 
+    to some prior rule, apply these as the proximal and distal 
+    values of the dendritic conductances.  Intermediate distances 
+    along the dendrite have conductances that vary linearly between 
+    these two values.
+
+*****************************************************************/
+proc apply_linear_ratios() {  local idx, g0
+
+    strdef tg
+
+    soma{ distance() }
+
+    for idx = 0, int_vec.size()-1 {
+
+        if( idx == 0 ) g0 = soma.gbar_naf
+        if( idx == 1 ) g0 = soma.gbar_kdr
+        if( idx == 2 ) g0 = soma.gbar_kc
+
+        if( idx == 3 || idx == 4 ) continue
+
+        if( idx == 5 ) g0 = soma.gbar_ka
+        if( idx == 6 ) g0 = soma.gbar_cal
+        if( idx == 7 ) g0 = soma.gbar_nap
+        if( idx == 8 && ismembrane("pas" ) ) g0 = soma.g_pas
+        if( idx == 8 && ismembrane("pasR") ) g0 = soma.g_pasR
+        if( idx == 9 ) g0 = soma.gbar_cat
+        if( idx == 10 ) g0 = soma.gbar_k2
+        if( idx == 11 ) g0 = soma.gbar_km
+        if( idx == 12 ) g0 = soma.gbar_kahp
+        if( idx == 13 ) g0 = soma.gbar_ar
+        if( idx == 14 ) g0 = soma.gbar_skahp
+
+        apply_one_dendcond(idx,g0)
+    }
+
+}
+
+objref soma_vals
+
+proc make_active_dendrite() { local val1, val2, val3, val4, sNash
+
+     soma { 
+        //if( ismembrane("naf") ) print "Soma HAS naf."  else print "Soma does NOT have naf." 
+        if( !ismembrane("naf") ) {
+            insert naf
+	    gbar_naf = 0
+        }
+        sNash = fastNashift_naf
+        if( !ismembrane("kdr") ) { 
+	    insert kdr
+	    gbar_kdr = 0
+        }
+        if( !ismembrane("ka") ) { 
+	    insert ka
+	    gbar_ka = 0
+        }
+        if( !ismembrane("kc") ) { 
+	    insert kc
+	    gbar_kc = 0
+        }
+        if( !ismembrane("km") ) { 
+	    insert km
+	    gbar_km = 0
+        }
+        if( !ismembrane("k2") ) { 
+	    insert k2
+	    gbar_k2 = 0
+        }
+        if( !ismembrane("kahp") ) { 
+	    insert kahp
+	    gbar_kahp = 0
+        }
+        if( !ismembrane("cal") ) { 
+	    insert cal
+	    gbar_cal = 0
+        }
+        if( !ismembrane("nap") ) { 
+	    insert nap
+	    gbar_nap = 0
+       }
+        if( !ismembrane("cad") ) { 
+	    insert cad
+            phi_cad = PHI_DFLT
+            beta_cad = BETA_SOMA
+            ceiling_cad = CEILING_CA
+        }
+        if( !ismembrane("cat") ) {
+	    insert cat
+            gbar_cat = 0
+        }
+        if( !ismembrane("ar") ) {
+	    insert ar
+            gbar_ar = 0
+        }
+        if( !ismembrane("skahp") ) {
+	    insert skahp
+            gbar_skahp = 0
+        }
+        soma_vals = new Vector()
+        soma_vals.append(gbar_naf,gbar_kdr)
+    }
+
+    forsec dendritic {
+
+        if( !ismembrane("naf") ) { 
+	    insert naf
+	    gbar_naf = 0
+
+            tmp = sNash
+            //print "soma has Na shift of ", tmp
+            fastNashift_naf = tmp
+            //print "just added naf to ", secname()
+        }
+        if( !ismembrane("kdr") ) { 
+	    insert kdr
+	    gbar_kdr = 0
+        }
+        if( !ismembrane("ka") ) { 
+	    insert ka
+	    gbar_ka = 0
+        }
+        if( !ismembrane("kc") ) { 
+	    insert kc
+	    gbar_kc = 0
+        }
+        if( !ismembrane("km") ) { 
+	    insert km
+	    gbar_km = 0
+        }
+        if( !ismembrane("k2") ) { 
+	    insert k2
+	    gbar_k2 = 0
+        }
+        if( !ismembrane("kahp") ) { 
+	    insert kahp
+	    gbar_kahp = 0
+        }
+        if( !ismembrane("cal") ) { 
+	    insert cal
+	    gbar_cal = 0
+        }
+        if( !ismembrane("nap") ) { 
+	    insert nap
+	    gbar_nap = 0
+       }
+        if( !ismembrane("cad") ) { 
+	    insert cad
+            phi_cad = soma.phi_cad
+            beta_cad = BETA_DEND
+            //ceiling_cad = soma.ceiling_cad
+//printf("Added cad to %s:  %g, %g, %g\n",secname(),phi_cad,beta_cad,ceiling_cad)
+        }
+        if( !ismembrane("cat") ) {
+if( VERBOSE ) printf("Now inserting cat.\n")
+	    insert cat
+            gbar_cat = 0
+        }
+        if( !ismembrane("ar") ) {
+	    insert ar
+            gbar_ar = 0
+        }
+        if( !ismembrane("skahp") ) {
+	    insert skahp
+            gbar_kahp = 0
+        }
+
+    }
+
+    if( VERBOSE ) printf("Rendering the axon active:\n")
+    forsec axonal {
+        if( !ismembrane("naf") ) insert naf
+        if( !ismembrane("kdr") ) insert kdr
+
+        ifsec "AxInitSeg" {
+            gbar_naf = soma_vals.x[0]
+            fastNashift_naf = sNash
+            gbar_kdr = soma_vals.x[1]
+        } 
+        ifsec "axon" {
+            gbar_naf = AX_GNASCALE*soma_vals.x[0]
+            fastNashift_naf = sNash
+            gbar_kdr = soma_vals.x[1]
+        }
+        if( VERBOSE ) printf("\t%s\t%g\t%g\n",secname(),gbar_naf,gbar_kdr)
+    }
+
+//printf("From make_active_dendrite()\n")
+    calc_global_slopefac(int_vec,sec_vec,slp_vec)
+    apply_linear_ratios()
+}
+
+
+
+/*****************************************************************
+
+        input    $1	1 or 0, make soma passive too?
+
+*****************************************************************/
+proc make_passive_dendrite() {
+
+    forall {
+	if( $1==0 )  ifsec "soma"  continue
+
+        if( ismembrane("naf") ) { uninsert naf }
+        if( ismembrane("kdr") ) { uninsert kdr }
+        if( ismembrane("ka") ) { uninsert ka }
+        if( ismembrane("kc") ) { uninsert kc }
+        if( ismembrane("cal") ) { uninsert cal }
+        if( ismembrane("nap") ) { uninsert nap }
+        if( ismembrane("cad") ) { uninsert cad }
+        if( ismembrane("cat") ) { uninsert cat }
+        if( ismembrane("k2") ) { uninsert k2 }
+        if( ismembrane("km") ) { uninsert km }
+        if( ismembrane("kahp") ) { uninsert kahp }
+        if( ismembrane("ar") ) { uninsert ar }
+
+    }
+
+}
+
+
+
+
+/******************************************************************
+
+    linear_passive_ratios()
+
+    Experimentation with model "PD83" of the ball & stick model 
+    suggests that using a proximal Na, NaP factor of 0.1 (relative 
+    to soma value) shows a greatly reduced backpropagating AP.
+
+    input	none
+
+******************************************************************/
+proc linear_passive_ratios() { local slp, idx, Pval, Dval
+
+    pri_nafac = 0
+    sec_nafac = 0
+
+    pri_kfac = 0
+    sec_kfac = 0
+
+    pri_kcafac = 0
+    sec_kcafac = 0
+
+    pri_pasfac = 1
+    sec_pasfac = 1
+
+    pri_kafac = 0
+    sec_kafac = 0
+
+    pri_cafac = 0
+    sec_cafac = 0
+
+    pri_napfac = 0
+    sec_napfac = 0
+
+    pri_locafac = 0
+    sec_locafac = 0
+
+    pri_k2fac = 0
+    sec_k2fac = 0 
+
+    pri_kmfac = 0
+    sec_kmfac = 0 
+
+    pri_kahpfac = 0
+    sec_kahpfac = 0 
+
+    pri_hfac = 0
+    sec_hfac = 0 
+
+
+    int_vec = new Vector(14,0)
+    sec_vec = new Vector(14,0)
+    // passive conductance not changed.
+    int_vec.x[8] = 1
+    sec_vec.x[8] = 1
+//printf("From linear_passive_ratios()\n")
+    calc_global_slopefac(int_vec,sec_vec,slp_vec)
+
+    apply_linear_ratios()
+}
+
+
+
+/***************************************************************
+
+    axon_set()
+
+    Adjust the axonal parameters.  Copied from ~ani/old_forAni/axon_set.hoc
+
+***************************************************************/
+proc axon_set() {
+    forsec axon {
+             gbar_naf=2.13*soma.gbar_naf
+             gbar_kdr=3.2*soma.gbar_kdr
+    }
+    forall if (issection("AxonInitseg")){
+             gbar_naf=2.13*soma.gbar_naf
+             gbar_kdr=3.2*soma.gbar_kdr
+    }
+}
+
+
+/***************************************************************
+
+    adj_{naf, kdr, kca...} :  
+
+    Adjust the soma value of the specified conductance,then apply 
+    a linear scaling of this value throughout the dendrite.
+
+    input	$1	somatic value to apply
+
+***************************************************************/
+proc adj_naf() { local setval
+
+     gbar_naf = $1
+    apply_one_dendcond(0,$1)
+    axon_set()
+    // set axonal values
+    forsec "axon" {
+        if( ismembrane("naf") ) {
+            gbar_naf = AX_GNASCALE * $1
+            if( VERBOSE ) printf("AXON:  %s gNa set to %g\n",secname(),gbar_naf)
+        } else { 
+            if( VERBOSE ) printf("AXON:  %s does not include gNa\n",secname())
+        }
+    }
+    forsec "Init" {
+        if( ismembrane("naf") ) {
+            gbar_naf = $1
+            if( VERBOSE ) printf("AXON:  %s gNa set to %g\n",secname(),gbar_naf)
+        } else { 
+            if( VERBOSE ) printf("AXON:  %s does not include gNa\n",secname())
+        }
+    }
+
+}
+
+proc adj_kdr() {
+
+     gbar_kdr = $1
+    apply_one_dendcond(1,$1)
+      axon_set()
+
+    /*******
+    // set axonal values
+    forsec "axon" {
+        if( ismembrane("kdr") ) {
+            gbar_kdr = $1
+            if( VERBOSE ) printf("AXON:  %s gKDR set to %g\n",secname(),gbar_kdr)
+        } else { 
+            if( VERBOSE ) printf("AXON:  %s does not include gKDR\n",secname())
+        }
+    }
+    ********/
+    forsec "Init" {
+        if( ismembrane("kdr") ) {
+            gbar_kdr = $1
+            if( VERBOSE ) printf("AXON:  %s gKDR set to %g\n",secname(),gbar_kdr)
+        } else { 
+            if( VERBOSE ) printf("AXON:  %s does not include gKDR\n",secname())
+        }
+    }
+}
+
+proc adj_kca() {
+
+    gbar_kc = $1
+    apply_one_dendcond(2,$1)
+}
+
+/******
+*   these two procedures are included for completeness; they are 
+*   also defined in adjust_procs.hoc
+******/
+proc adj_beta() {  local DENDSCL
+
+    DENDSCL = 5
+    soma { if( ismembrane("cad")) beta_cad = $1 }
+    forall { 
+        ifsec "soma" continue
+	if( ismembrane("cad")) {
+	  beta_cad = $1 * DENDSCL
+	}
+    }
+}
+
+proc adj_phi() {
+	forall { if( ismembrane("cad"))  phi_cad = $1 }
+}
+
+proc adj_ka() {
+
+    gbar_ka = $1
+    apply_one_dendcond(5,$1)
+}
+
+proc adj_caL() {
+
+    gbar_cal = $1
+    apply_one_dendcond(6,$1)
+}
+
+proc adj_nap() {
+
+    gbar_nap = $1
+    apply_one_dendcond(7,$1)
+}
+
+proc adj_pas() {
+
+    if( ismembrane("pas") ) { 
+        g_pas = $1
+    } else {
+        if( ismembrane("pasR") ) g_pasR = $1
+    }
+    apply_one_dendcond(8,$1)
+}
+
+proc adj_caT() {
+
+    gbar_cat = $1
+    apply_one_dendcond(9,$1)
+}
+
+proc adj_km() {
+
+    gbar_km = $1
+    apply_one_dendcond(11,$1)
+}
+
+proc adj_k2() {
+
+    gbar_k2 = $1
+    apply_one_dendcond(10,$1)
+}
+
+proc adj_kahp() {
+
+    gbar_kahp = $1
+    apply_one_dendcond(12,$1)
+}
+
+proc adj_h() {
+
+    gbar_ar = $1
+    apply_one_dendcond(13,$1)
+}
+
+proc adj_Cm() {
+    forall { cm = $1 }
+    init()
+}
+
+proc adj_Ra() {
+    forall { Ra = $1 }
+    init()
+}
+
+proc adj_skahp() {
+
+    gbar_skahp = $1
+    apply_one_dendcond(14,$1)
+}
+
+proc add_LoCa() {
+    forall {
+        if( !ismembrane("cat") )  insert cat
+    }
+}
+
+/**************************************************
+
+    func find_longest_dend
+
+    output    $s1	name of section with longest distance
+              $2	segment with longest distance
+
+**************************************************/
+func find_longest_dend() { local lngdist, curdist, segID
+
+    soma { distance() }
+
+    strdef lng_name
+
+    lngdist = 0
+    segID = -1
+    forsec dendritic {
+        for(x) {
+            curdist = distance(x)
+            if( curdist > lngdist ) {
+	        segID = x
+                lng_name = secname()
+                lngdist = curdist
+	    }
+	}
+    }
+
+    $s1 = lng_name
+    $2  = segID
+
+    //printf("Longest dendrite was %s(%d), distance from soma %g um.\n",lng_name,segID,lngdist)
+
+    return lngdist
+
+}
+
+/**************************************************
+
+    func find_shortest_dend
+
+    output    $s1	name of section with longest distance
+              $2	segment with longest distance
+
+**************************************************/
+func find_shortest_dend() { local shrtdist, curdist, segID
+
+    soma { distance() }
+
+    strdef shrt_name
+
+    shrtdist = 1e6
+    segID = -1
+    forsec dendritic {
+        for(x) {
+            curdist = distance(x)
+            if( curdist < shrtdist ) {
+	        segID = x
+                shrt_name = secname()
+                shrtdist = curdist
+	    }
+	}
+    }
+
+    $s1 = shrt_name
+    $2  = segID
+
+    //printf("Shortest dendrite was %s(%d), distance from soma %g um.\n",shrt_name,segID,shrtdist)
+
+    return shrtdist
+
+}
+
+
+
+/**************************************************
+
+    proc shift_axonNa
+
+    input	$1	amount to shift Na's V_half
+
+**************************************************/
+proc shift_axonNa() {
+
+    forsec "axon" {
+        fastNashift_naf = $1
+    }
+}
+
+
+/**************************************************
+
+    proc axonNa_hypol
+
+    input	$1	amount to shift Na's V_half, times -1 (so we can run this in log mode)
+
+**************************************************/
+proc axonNa_hypol() {
+
+    forsec "axon" {
+        fastNashift_naf = -1*$1
+    }
+}
+
+
+
+
+proc    set_memres() {
+
+    forsec dendritic {
+        // set membrane resistance
+        RM = $1
+        g_pas=1/$1
+    }
+    forsec axon {g_pas=1/1000}
+    soma {
+        // set membrane resistance
+        RM = $1
+        g_pas=1/$1
+    }
+}
+
+
+
+
+
+/******************************************************************
+
+    set_dend_Hratios()
+
+    Feb 19 '13
+
+    specify the ratio of H current at the farthest dendritic tip, 
+    relative to the soma value.  Increases linearly with distance 
+    from the soma.
+
+    input	$1	ratio at tip, relative to soma 
+			(e.g. $1=2 means twice the somatic value)
+
+******************************************************************/
+proc set_dend_Hratios() { local slp, idx, Pval, Dval
+
+    int_vec.x[13] = 1
+    sec_vec.x[13] = $1
+
+    calc_global_slopefac(int_vec,sec_vec,slp_vec)
+    apply_linear_ratios()
+}
+

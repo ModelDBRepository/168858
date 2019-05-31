@@ -1,0 +1,32 @@
+//readme.txt, last column is the distance to pial surface
+aged_neuron1.hoc = Apr6IR1g_2005.hoc, 260,
+aged_neuron2.hoc = Apr6IR1n_2005.hoc, 405, excluded from spine analyses due to background noise    
+aged_neuron3.hoc = Apr6IR2f_2005.hoc, 616, basal trees were smeared (due to working distance problem) and were not traced, spines on basal trees were not analyzed
+aged_neuron4.hoc = 5_4_06.hoc, Feb_27_2006CellN, 378   
+aged_neuron5.hoc = 5_6_06.hoc, Feb_27_2006CellH, 458, basal trees were varicosed and were not traced
+aged_neuron6.hoc = 5_7_06.hoc, Feb_27_2006CellG, 490, basal trees were varicosed and were not traced
+aged_neuron7.hoc = 5_8_06.hoc, Feb_27_2006CellF, 424, basal trees were varicosed and were not traced
+aged_neuron8.hoc = 9_20_06.hoc, Aug3_2006CellG, 368,  
+aged_neuron9.hoc = 9_22_06.hoc, Aug3_2006CellE, 649,     
+aged_neuron10.hoc = 9_23_06.hoc, Aug3_2006CellF, 635   
+aged_neuron11.hoc = May4_2000.hoc, 370, NO PHYSIOLOGY 
+aged_neuron12.hoc =aug3 ir2 a, IN BOSTON
+aged_neuron13.hoc =aug3 ir2 b, IN BOSTON
+aged_neuron14.hoc =aug3 ir2 d, IN NEW YORK
+aged_neuron15.hoc =aug3 g, IN BOSTON
+
+
+//
+young_neuron1.hoc = May31IR2d_2005, 390, basal and apical trees were cut and were not traced, spines are o.k. 
+young_neuron2.hoc = May31IR2e_2005, 766, basal trees were cut and were not traced      
+young_neuron3.hoc = Jun7IR1d_2005, 590,  good neuron for Christina      
+young_neuron4.hoc = 5_12_06.hoc, Dec15_2006CellD, 400, basal trees were not traced    
+young_neuron5.hoc = 5_13_06.hoc, Dec15_2006CellE, 288, basal trees were not traced       
+young_neuron6.hoc = 5_20_06.hoc, May3_2006CellX, 346, basal trees were not traced, 
+young_neuron7.hoc = 5_21_06.hoc, May3_2006CellY, 587, 
+young_neuron8.hoc = 5_26_06.hoc, May3_2006CellG, 723,  
+young_neuron9.hoc = 5_28_06.hoc, May3_2006CellH, 447, 
+young_neuron10.hoc = 5_31_06.hoc, May3_2006CellI, 555, 
+young_neuron11.hoc = 6_2_06.hoc, May3_2006CellJ, 527, apical trunk diameter was not clear, basal dendrites were not traced, apical length and spines are o.k. 
+young_neuron12.hoc = dec15f(IR2), IN BOSTON
+young_neuron13.hoc = may3c(IR2), IN BOSTON

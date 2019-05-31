@@ -1,0 +1,131 @@
+Script started on Tue Aug 19 16:06:12 2014
+[?1034hbash-3.2$ ./Scripts/regeneratePaperComputations.sh 
+Generating hoc files for neurons
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.2s 
+Computing mbpap
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.2s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+Computing attenuation
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+Computing Sholl measurements
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.2s 
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+Computing input resistance
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.0s 
+Computing firing rates
+7[r[999;999H[6n8
+Computers / CPU cores / Max jobs to run
+1:local / 16 / 4
+
+Computer:jobs running/jobs completed/%of started jobs/Average seconds to complete
+local:4/0/100%/0.0s /bin/bash: Error:: command not found
+/bin/bash: ok3: command not found
+/bin/bash: ok2: command not found
+/bin/bash: ok1: command not found
+ETA: 0s Left: 0 AVG: 0.00s  local:0/4/100%/0.2s 
+bash-3.2$ exit
+
+Script done on Tue Aug 19 16:06:27 2014

@@ -1,0 +1,285 @@
+E_PAS=-66.000000
+objref soma_ref
+objref tree_root
+
+load_file("fixnseg.hoc")
+/* Parses a cell specification file implemented as a hoc template.
+   It is assumed that dendritic sections are named "dend.*[n]".  If the global
+   flag_spines is set to 1, then any explicit spines (whose names match the
+   pattern "spine.*[n]") are counted on each section, and then used to adjust the
+   section's length and diameter according to the normalization procedure
+   discussed in Guy Major's PhD thesis.
+     Regardless of the setting of flag_spines, all explicit spines are then
+   deleted, and tree properties set according to the passive properties
+   defined at the top of this file.
+
+   Expected globals:
+     E_PAS: default value for the e_pas membrane variable
+
+   Arguments:
+     $1: the index of the cell to read.
+ */
+
+// *** Globals ***
+
+CM = 1
+RM = 25974
+RA = 150
+G_PAS = 1/RM
+// Radius of a "standard" soma, typical in this study.
+// This is now set in NEURONInterface.py, where it's loaded from FileDirectory.csv.
+// STD_SOMA = 7.05
+
+stifleCharCount = printf("CM = %f\n", CM)
+stifleCharCount = printf("RM = %f\n", RM)
+stifleCharCount = printf("RA = %f\n", RA)
+stifleCharCount = printf("G_PAS = %f\n", G_PAS)
+stifleCharCount = printf("E_PAS = %f\n", E_PAS)
+
+ApicalHeadDiam = .47
+ApicalHeadLen = .71
+ApicalNeckDiam = .19
+ApicalNeckLen = .44
+BasalHeadDiam = .56
+BasalHeadLen = .82
+BasalNeckDiam = .16
+BasalNeckLen = .54
+
+SurfaceAreaOneApicalSpine = (ApicalNeckDiam * PI * ApicalNeckLen + \
+                             ApicalHeadDiam * PI * ApicalHeadLen)
+SurfaceAreaOneBasalSpine = (BasalNeckDiam * PI * BasalNeckLen + \
+                            BasalHeadDiam * PI * BasalHeadLen)
+VolumeOneApicalSpine = \
+    PI * (ApicalNeckDiam/2.0) * (ApicalNeckDiam/2.0) * ApicalNeckLen + \
+    PI * (ApicalHeadDiam/2.0) * (ApicalHeadDiam/2.0) * ApicalHeadLen
+VolumeOneBasalSpine = \
+    PI * (BasalNeckDiam/2.0) * (BasalNeckDiam/2.0) * BasalNeckLen + \
+    PI * (BasalHeadDiam/2.0) * (BasalHeadDiam/2.0) * BasalHeadLen
+
+/*
+ * Applies spines to a cell on all dendrites matching the provided forsec
+ * pattern.  The
+ * global variable flag_spines is ignored, since this method only makes sense
+ * to call when spine processing is desired.
+ *
+ * Arguments:
+ * $1: "forsec" pattern describing the dendrites in the tree.
+ */
+proc applySubtreeSpecificSpines() { local total_surface_area, dend_surface_area, \
+    surface_area_one_spine, spine_surface_area_for_section, surface_area_all_spines \
+    localobj dendrite_pattern, each_section
+  dendrite_pattern = new String($s1)
+  surface_area_one_spine = $2
+  dendrite_count = 0
+  total_surface_area = 0
+  surface_area_all_spines = 0
+//  printf("Dendrite pattern: %s\n", dendrite_pattern.s)
+  forsec dendrite_pattern.s {
+    each_section = new SectionRef()
+
+    dendrite_count = dendrite_count + 1
+    temp = area(0.5)
+    num_spines_in_section = 0
+    for i = 0, (each_section.nchild - 1) each_section.child[i] {
+      if (issection("spine.*")) {
+        num_spines_in_section = num_spines_in_section + 1
+      }
+    }
+
+    dend_surface_area = 0
+    for (x) {
+      dend_surface_area = dend_surface_area + area(x)
+    }
+    total_surface_area = total_surface_area + dend_surface_area
+    spine_surface_area_for_section = (surface_area_one_spine * num_spines_in_section)
+    surface_area_all_spines = surface_area_all_spines + spine_surface_area_for_section
+
+    if (dend_surface_area > 0 && num_spines_in_section > 0) {
+      factor = (dend_surface_area + spine_surface_area_for_section) / dend_surface_area
+      L = L * (factor^(2/3))
+      for (x) {
+        diam(x) = diam(x) * (factor^(1/3))
+      }
+    }
+  }
+
+  printf("Dendrite_count with pattern %s: %d\n", dendrite_pattern.s, dendrite_count)
+  printf("Total surface area before spine correction: %f\n", total_surface_area)
+  printf("Total surface area of spines: %f\n", surface_area_all_spines)
+  printf("Total surface area after spine correction: %f\n", \
+         surface_area_all_spines + total_surface_area)
+}
+
+/*
+ * Loads a cell, replaces the spines with the Major spine correction factor.
+ * Note that this function destroys all sections, and creates the neuron from
+ * scratch.
+ *
+ * Arguments:
+ * $1: Path to neuron
+ * $2: 1 if apical spine parameters should be assumed, 2 if basal spines,
+ *     3 if both should be present, depending on whether the sections are
+ *     named dend_apical* or dend_basal*.  (Clients should be aware of the
+ *     implication: argument values 1 and 2 should only be used for partial,
+ *     not whole, neurons.)
+ */
+proc readcell() { localobj sref
+  strdef neuron_name
+  neuron_name = $s1
+//   printf("Loading neuron: %s\n", neuron_name)
+  spine_type = $2
+
+  // Before this point, a "create soma" call will have been needed to declare
+  // the soma.  However, we don't want that soma to prevent the new soma from
+  // loading. So delete it here.  (Yes, it's awkward, but the earlier create
+  // seems to be required by NEURON.)
+  //   This also has the benfit that it clears out anything that was hanging
+  // around already, since it might interfere with the simulation.
+  forall { delete_section() }
+
+  // It is required that the .hoc file loaded here will leave the soma section
+  // as the currently accessed section.
+  load_file(neuron_name)
+  if (0 != strcmp(secname(), "soma")) {
+    print "Error in readcell: loaded neuron did not access its soma"
+    quit()
+  }
+
+  diam = 2.0 * STD_SOMA
+  L = 2.0 * STD_SOMA
+  printf("STD_SOMA = %f\n", STD_SOMA)
+
+  geom_nseg(500, 0.1)
+
+  printf("geom_nseg parameter = %f\n", 0.1)
+
+  // Just for the soma.  Also reset diam and L, in case the change in nseg
+  // disrupted them.
+  nseg = 1
+  diam = 2.0 * STD_SOMA
+  L = 2.0 * STD_SOMA
+
+  // Ensure that NEURON evaluates the cell in 3D mode when calling diam(), by
+  // using a side effect of the area() call.  It doesn't matter which section
+  // is used for the call, and the return value of area() can be discarded.
+  forall {
+    area(0.5)
+  }
+
+  define_shape()
+
+  surface_area_one_spine = -1
+  volume_one_spine = -1
+  if (spine_type == 3) {  // Tree-specific spines (apical or basal)
+    printf("Using subtree-specific apical and basal spines\n")
+    // Note that these methods don't worry about preserving non-spine-corrected
+    // lengths through the origlen mechanism, because at this time this case is
+    // only used for direct simulations of whole neurons that don't require
+    // computations based on the original dendrite lengths.
+    applySubtreeSpecificSpines("dend_apical", SurfaceAreaOneApicalSpine)
+    applySubtreeSpecificSpines("dend_basal", SurfaceAreaOneBasalSpine)
+  } else {
+    if (spine_type == 1) {  // Apical
+      printf("using apical spines\n")
+      surface_area_one_spine = SurfaceAreaOneApicalSpine
+      volume_one_spine = VolumeOneApicalSpine
+    } else if (spine_type == 2) {  // Basal
+      printf("using basal spines\n")
+      surface_area_one_spine = SurfaceAreaOneBasalSpine
+      volume_one_spine = VolumeOneBasalSpine
+    } else {
+      printf("ERROR: unrecognized spine type\n")
+    }
+
+    totalSurfaceArea = 0
+    spineSurfaceArea = 0
+    spineVolume = 0
+
+    // Baseline for distance is set at the midpoint of the soma, where both of
+    // the dendritic trees are attached.  (This is identical to what's used by
+    // the functions that compute L_out, L_in, and mbpap.
+    distance(0, 0.5)
+
+    // Preserve pre-spine correction distances
+    forall {
+      insert origlen
+      for(x) {
+        distance_origlen(x) = distance(x)
+        length_origlen(x) = area(x) / (diam(x) * PI)  // area = l*pi*d
+      }
+    }
+
+    if (flag_spines == 1) {  // Global
+      printf("Applying surface area correction (flag_spines = 1)\n")
+      forsec "dend" {
+        temp = area(0.5)
+        sref = new SectionRef()
+        num_spines_in_section = 0
+        for j = 0, sref.nchild-1 sref.child[j] {
+          if (issection("spine.*")) {
+            num_spines_in_section = num_spines_in_section + 1
+          }
+        }
+
+        SurfaceAreaDend = 0
+        volumeDend = 0
+        for (x) {
+          SurfaceAreaDend = SurfaceAreaDend + area(x)
+        }
+        totalSurfaceArea = totalSurfaceArea + SurfaceAreaDend
+        SurfaceAreaAllSpines = (surface_area_one_spine * num_spines_in_section)
+        spineSurfaceArea = spineSurfaceArea + SurfaceAreaAllSpines
+        spineVolume = spineVolume + (volume_one_spine * num_spines_in_section)
+
+        if (SurfaceAreaDend > 0 && num_spines_in_section > 0) {
+          factor = (SurfaceAreaDend + SurfaceAreaAllSpines) / SurfaceAreaDend
+          L = L * (factor^(2/3))
+          for (x) {
+            diam(x) = diam(x) * (factor^(1/3))
+          }
+        }
+      }
+    } else {
+      printf("NOT applying surface area correction (flag_spines = 0)\n")
+    }
+
+    // Print some summary info for tables 1 and 2
+    printf("\n")
+    // Technically, this is the surface area *before* spine correction.
+    printf("surface area: %g\n", totalSurfaceArea)
+    printf("spine surface area: %g\n", spineSurfaceArea)
+    printf("spine volume: %g\n", spineVolume)
+  }  // spine_type != 3
+  forsec "spine" {  delete_section() }
+
+  forall {
+    Ra = RA
+    cm = CM
+    insert pas  g_pas = G_PAS e_pas=E_PAS
+    insert max
+    v = E_PAS
+  }
+  celsius = 21
+
+  printf("E_PAS = %f\n", E_PAS)
+  printf("celsius = %f\n", celsius)
+}
+
+load_file("actionPotentialPlayer.hoc")
+load_file("analyticFunctions.hoc")
+load_file("measureMeanAtten.hoc")
+
+flag_spines = 1  // 1 = compensate for spines.  2 == don't compensate for spines
+
+STD_SOMA=8.28
+readcell("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/HocFiles/Aug3b-apical-spiny.hoc", 1)
+soma {
+ nseg = 1
+ soma_ref = new SectionRef()
+}
+print "--BEGIN BPAP--"
+BAPvalues(soma_ref, voltage_vec, time_vec, "dend")
+print "--END BPAP--"
+quit()
+
+

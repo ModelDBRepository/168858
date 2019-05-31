@@ -1,0 +1,10 @@
+objref soma_ref
+objref tree_root
+
+load_file("fixnseg.hoc")
+load_file("readcell.hoc")
+load_file("actionPotentialPlayer.hoc")
+load_file("analyticFunctions.hoc")
+load_file("measureMeanAtten.hoc")
+
+flag_spines = 1  // 1 = compensate for spines.  2 == don't compensate for spines

@@ -1,0 +1,1097 @@
+E_PAS=-69
+STD_SOMA=8.28
+load_file("fixnseg.hoc")
+/* Parses a cell specification file implemented as a hoc template.
+   It is assumed that dendritic sections are named "dend.*[n]".  If the global
+   flag_spines is set to 1, then any explicit spines (whose names match the
+   pattern "spine.*[n]") are counted on each section, and then used to adjust the
+   section's length and diameter according to the normalization procedure
+   discussed in Guy Major's PhD thesis.
+     Regardless of the setting of flag_spines, all explicit spines are then
+   deleted, and tree properties set according to the passive properties
+   defined at the top of this file.
+
+   Expected globals:
+     E_PAS: default value for the e_pas membrane variable
+
+   Arguments:
+     $1: the index of the cell to read.
+ */
+
+// *** Globals ***
+
+CM = 1
+RM = 25974
+RA = 150
+G_PAS = 1/RM
+// Radius of a "standard" soma, typical in this study.
+// This is now set in NEURONInterface.py, where it's loaded from FileDirectory.csv.
+// STD_SOMA = 7.05
+
+stifleCharCount = printf("CM = %f\n", CM)
+stifleCharCount = printf("RM = %f\n", RM)
+stifleCharCount = printf("RA = %f\n", RA)
+stifleCharCount = printf("G_PAS = %f\n", G_PAS)
+stifleCharCount = printf("E_PAS = %f\n", E_PAS)
+
+ApicalHeadDiam = .47
+ApicalHeadLen = .71
+ApicalNeckDiam = .19
+ApicalNeckLen = .44
+BasalHeadDiam = .56
+BasalHeadLen = .82
+BasalNeckDiam = .16
+BasalNeckLen = .54
+
+SurfaceAreaOneApicalSpine = (ApicalNeckDiam * PI * ApicalNeckLen + \
+                             ApicalHeadDiam * PI * ApicalHeadLen)
+SurfaceAreaOneBasalSpine = (BasalNeckDiam * PI * BasalNeckLen + \
+                            BasalHeadDiam * PI * BasalHeadLen)
+VolumeOneApicalSpine = \
+    PI * (ApicalNeckDiam/2.0) * (ApicalNeckDiam/2.0) * ApicalNeckLen + \
+    PI * (ApicalHeadDiam/2.0) * (ApicalHeadDiam/2.0) * ApicalHeadLen
+VolumeOneBasalSpine = \
+    PI * (BasalNeckDiam/2.0) * (BasalNeckDiam/2.0) * BasalNeckLen + \
+    PI * (BasalHeadDiam/2.0) * (BasalHeadDiam/2.0) * BasalHeadLen
+
+/*
+ * Applies spines to a cell on all dendrites matching the provided forsec
+ * pattern.  The
+ * global variable flag_spines is ignored, since this method only makes sense
+ * to call when spine processing is desired.
+ *
+ * Arguments:
+ * $1: "forsec" pattern describing the dendrites in the tree.
+ */
+proc applySubtreeSpecificSpines() { local total_surface_area, dend_surface_area, \
+    surface_area_one_spine, spine_surface_area_for_section, surface_area_all_spines \
+    localobj dendrite_pattern, each_section
+  dendrite_pattern = new String($s1)
+  surface_area_one_spine = $2
+  dendrite_count = 0
+  total_surface_area = 0
+  surface_area_all_spines = 0
+//  printf("Dendrite pattern: %s\n", dendrite_pattern.s)
+  forsec dendrite_pattern.s {
+    each_section = new SectionRef()
+
+    dendrite_count = dendrite_count + 1
+    temp = area(0.5)
+    num_spines_in_section = 0
+    for i = 0, (each_section.nchild - 1) each_section.child[i] {
+      if (issection("spine.*")) {
+        num_spines_in_section = num_spines_in_section + 1
+      }
+    }
+
+    dend_surface_area = 0
+    for (x) {
+      dend_surface_area = dend_surface_area + area(x)
+    }
+    total_surface_area = total_surface_area + dend_surface_area
+    spine_surface_area_for_section = (surface_area_one_spine * num_spines_in_section)
+    surface_area_all_spines = surface_area_all_spines + spine_surface_area_for_section
+
+    if (dend_surface_area > 0 && num_spines_in_section > 0) {
+      factor = (dend_surface_area + spine_surface_area_for_section) / dend_surface_area
+      L = L * (factor^(2/3))
+      for (x) {
+        diam(x) = diam(x) * (factor^(1/3))
+      }
+    }
+  }
+
+  printf("Dendrite_count with pattern %s: %d\n", dendrite_pattern.s, dendrite_count)
+  printf("Total surface area before spine correction: %f\n", total_surface_area)
+  printf("Total surface area of spines: %f\n", surface_area_all_spines)
+  printf("Total surface area after spine correction: %f\n", \
+         surface_area_all_spines + total_surface_area)
+}
+
+/*
+ * Loads a cell, replaces the spines with the Major spine correction factor.
+ * Note that this function destroys all sections, and creates the neuron from
+ * scratch.
+ *
+ * Arguments:
+ * $1: Path to neuron
+ * $2: 1 if apical spine parameters should be assumed, 2 if basal spines,
+ *     3 if both should be present, depending on whether the sections are
+ *     named dend_apical* or dend_basal*.  (Clients should be aware of the
+ *     implication: argument values 1 and 2 should only be used for partial,
+ *     not whole, neurons.)
+ */
+proc readcell() { localobj sref
+  strdef neuron_name
+  neuron_name = $s1
+//   printf("Loading neuron: %s\n", neuron_name)
+  spine_type = $2
+
+  // Before this point, a "create soma" call will have been needed to declare
+  // the soma.  However, we don't want that soma to prevent the new soma from
+  // loading. So delete it here.  (Yes, it's awkward, but the earlier create
+  // seems to be required by NEURON.)
+  //   This also has the benfit that it clears out anything that was hanging
+  // around already, since it might interfere with the simulation.
+  forall { delete_section() }
+
+  // It is required that the .hoc file loaded here will leave the soma section
+  // as the currently accessed section.
+  load_file(neuron_name)
+  if (0 != strcmp(secname(), "soma")) {
+    print "Error in readcell: loaded neuron did not access its soma"
+    quit()
+  }
+
+  diam = 2.0 * STD_SOMA
+  L = 2.0 * STD_SOMA
+  printf("STD_SOMA = %f\n", STD_SOMA)
+
+  geom_nseg(500, 0.1)
+
+  printf("geom_nseg parameter = %f\n", 0.1)
+
+  // Just for the soma.  Also reset diam and L, in case the change in nseg
+  // disrupted them.
+  nseg = 1
+  diam = 2.0 * STD_SOMA
+  L = 2.0 * STD_SOMA
+
+  // Ensure that NEURON evaluates the cell in 3D mode when calling diam(), by
+  // using a side effect of the area() call.  It doesn't matter which section
+  // is used for the call, and the return value of area() can be discarded.
+  forall {
+    area(0.5)
+  }
+
+  define_shape()
+
+  surface_area_one_spine = -1
+  volume_one_spine = -1
+  if (spine_type == 3) {  // Tree-specific spines (apical or basal)
+    printf("Using subtree-specific apical and basal spines\n")
+    // Note that these methods don't worry about preserving non-spine-corrected
+    // lengths through the origlen mechanism, because at this time this case is
+    // only used for direct simulations of whole neurons that don't require
+    // computations based on the original dendrite lengths.
+    applySubtreeSpecificSpines("dend_apical", SurfaceAreaOneApicalSpine)
+    applySubtreeSpecificSpines("dend_basal", SurfaceAreaOneBasalSpine)
+  } else {
+    if (spine_type == 1) {  // Apical
+      printf("using apical spines\n")
+      surface_area_one_spine = SurfaceAreaOneApicalSpine
+      volume_one_spine = VolumeOneApicalSpine
+    } else if (spine_type == 2) {  // Basal
+      printf("using basal spines\n")
+      surface_area_one_spine = SurfaceAreaOneBasalSpine
+      volume_one_spine = VolumeOneBasalSpine
+    } else {
+      printf("ERROR: unrecognized spine type\n")
+    }
+
+    totalSurfaceArea = 0
+    spineSurfaceArea = 0
+    spineVolume = 0
+
+    // Baseline for distance is set at the midpoint of the soma, where both of
+    // the dendritic trees are attached.  (This is identical to what's used by
+    // the functions that compute L_out, L_in, and mbpap.
+    distance(0, 0.5)
+
+    // Preserve pre-spine correction distances
+    forall {
+      insert origlen
+      for(x) {
+        distance_origlen(x) = distance(x)
+        length_origlen(x) = area(x) / (diam(x) * PI)  // area = l*pi*d
+      }
+    }
+
+    if (flag_spines == 1) {  // Global
+      printf("Applying surface area correction (flag_spines = 1)\n")
+      forsec "dend" {
+        temp = area(0.5)
+        sref = new SectionRef()
+        num_spines_in_section = 0
+        for j = 0, sref.nchild-1 sref.child[j] {
+          if (issection("spine.*")) {
+            num_spines_in_section = num_spines_in_section + 1
+          }
+        }
+
+        SurfaceAreaDend = 0
+        volumeDend = 0
+        for (x) {
+          SurfaceAreaDend = SurfaceAreaDend + area(x)
+        }
+        totalSurfaceArea = totalSurfaceArea + SurfaceAreaDend
+        SurfaceAreaAllSpines = (surface_area_one_spine * num_spines_in_section)
+        spineSurfaceArea = spineSurfaceArea + SurfaceAreaAllSpines
+        spineVolume = spineVolume + (volume_one_spine * num_spines_in_section)
+
+        if (SurfaceAreaDend > 0 && num_spines_in_section > 0) {
+          factor = (SurfaceAreaDend + SurfaceAreaAllSpines) / SurfaceAreaDend
+          L = L * (factor^(2/3))
+          for (x) {
+            diam(x) = diam(x) * (factor^(1/3))
+          }
+        }
+      }
+    } else {
+      printf("NOT applying surface area correction (flag_spines = 0)\n")
+    }
+
+    // Print some summary info for tables 1 and 2
+    printf("\n")
+    // Technically, this is the surface area *before* spine correction.
+    printf("surface area: %g\n", totalSurfaceArea)
+    printf("spine surface area: %g\n", spineSurfaceArea)
+    printf("spine volume: %g\n", spineVolume)
+  }  // spine_type != 3
+  forsec "spine" {  delete_section() }
+
+  forall {
+    Ra = RA
+    cm = CM
+    insert pas  g_pas = G_PAS e_pas=E_PAS
+    insert max
+    v = E_PAS
+  }
+  celsius = 21
+
+  printf("E_PAS = %f\n", E_PAS)
+  printf("celsius = %f\n", celsius)
+}
+
+objref voltage_vec, time_vec
+// load_file("fixnseg.hoc")
+// load_file("readcell_nomechanisms.hoc")
+
+// *** Logging ***
+// Just a handy function and some globals to make it possible to turn logging on
+// and off.
+LOG_NONE = 0
+LOG_ERROR = 1
+LOG_WARNING = 2
+LOG_INFO = 3
+LOG_TRACE = 4
+
+LOG_LEVEL = 3
+
+// Logs the string passed to it iff the global LOG_LEVEL is >= the log level
+// provided as an argument.
+//   The log string is passed to printf, so should contain an explicit \n
+// character if a newline is desired.
+// $1: the log level to compare to LOG_LEVEL
+// $s2: the string to print
+proc Log() { local log_level localobj log_string
+  log_level = $1
+  log_string = new String($s2)
+
+  if (LOG_LEVEL >= log_level) {
+    printf(log_string.s())
+  }
+}
+
+
+// *** Globals ***
+
+// Variables that define the parameter space from Christina's V1 paper.  These can be modified
+// to sample firing rates at different points
+NA_CONDUCTANCE = 200
+K_CONDUCTANCE = 200
+stifleCharCount = printf("Running simulation for point in parameter space: %f, %f\n", NA_CONDUCTANCE, K_CONDUCTANCE)
+
+// The soma created here will be replaced by read_cell, but it's needed in
+// order for some of the following code to be accepted by the Hoc interpreter.
+create soma
+
+flag_spines = 1
+
+objref voltageClamp
+objref stim
+
+// Global variables from Christina's aux_procs.hoc script.
+objref FRout
+strdef refStr
+objref exptVec, iVec
+objref ihold
+objref tree_root
+// copied from coskren_procs.hoc
+STD_SOMA_RADIUS = 8.28  // Only used for electrotonic measurements
+// CM = 1
+// RA = 150
+// celsius = 21
+
+stifleCharCount = printf("STD_SOMA_RADIUS = %f\n", STD_SOMA_RADIUS)
+
+// Global variables from Christina's add_axon.hoc script.
+n_axon_seg  	= 5		/* # nodes in synthetic axon */
+create iseg, hill, myelin[n_axon_seg], node[n_axon_seg]
+objref axExcit, axSame
+
+// Global variables from Christina's init_model.hoc script.
+spinescale = 1
+dendscale = 1
+
+// Global variables from Christina's rec_volt_justV.hoc script
+strdef fname
+objref tVec, vs, caVec, iVec
+objref vs0, vd0, vd1, vd2, vd3	// voltages at the connecting ends of each section
+objref sref
+objref camVec, cacVec, catVec		// [ca] in middle shell, core, & total
+objref caB					// buffered Ca in outer shell
+objref aVec, xVec			// for ATPase & exch vec
+objref kdrV, nafV, kahpV, cahvaV
+objref kslowV, kaV, hV, napV, calvaV
+objref canV				// for CAN current
+objref spiketimes
+objref apc, isi, fr				// APcount
+objref fout
+objref stVec			// vector containing applied current steps
+objref alCAN			// alpha channel opening for CAN
+objref icangraph, ecaV, ipmpV
+
+// Global variables from Christina's custominit.hoc script
+
+// This is the current in nA that must be applied at the injection site
+// in order to hold v at that location to the desired potential.
+IHOLD = 0
+
+// Global variables from Christina's batchrun.hoc script
+objref ihold // an IClamp used to deliver the holding current
+
+// Global variables from Christina's mainMac_PFC_wSEClamp.hoc script
+INITDUR = 80
+V0 = -70
+
+stifleCharCount = printf("V0 = %f\n", V0)
+
+// Global variables containing neuron locations.  The variables neuron_paths
+// and neuron_names are parallel lists of strings, such that for any index i,
+// neuron_paths[i] is the full path to the neuron, and neuron_names[i] is its
+// name.  (Technically, the values are, for example, neuron_paths.o(i).s(),
+// since Hoc List objects have no [] operator and these lists contain String
+// objects rather than raw Hoc strings.)
+objref neuron_resting_potentials
+objref neuron_path_str
+objref neuron_name_str
+
+/**************************************************
+ * The following functions are based on the contents of Christina's
+ * add_axon.hoc script.
+ */
+
+proc add_axon() {
+  Log(LOG_TRACE, "Entering method add_axon\n")
+
+  connect_axon()
+  insert_channels()
+  active_set()
+  passive_set()
+  Axon = 1
+  define_shape()
+
+  Log(LOG_TRACE, "Leaving method add_axon\n")
+}
+
+proc connect_axon() { local a,i		// cmw Aug '11:  deleted local var 'n'
+  Log(LOG_TRACE, "Entering method connect_axon\n")
+
+	create iseg
+	create node[n_axon_seg]
+	create hill
+	create myelin[n_axon_seg]
+
+	a = 0
+	soma {
+    for(x) a += area(x)
+		equiv_diam = sqrt(a/(4*PI))
+  }
+
+	for i=0,n_axon_seg-1 {
+    iseg       { L = 15  nseg = 5  diam = equiv_diam / 10 } /*Sloper&Powell 1982,Fig.71*/
+    myelin[i]  { L = 100 nseg = 5  diam = iseg.diam  }
+    node[i]    { L = 1.0 nseg = 1  diam = iseg.diam*.75 }
+  }
+	hill  { L = 10  nseg = 5  diam(0:1) = 4 * iseg.diam:iseg.diam }
+
+	soma connect hill(0), 0.5
+	hill connect iseg(0), 1
+	iseg connect myelin[0](0), 1
+	myelin[0] connect node[0](0), 1
+	for i = 0,n_axon_seg-2  {
+		node[i]	connect myelin[i+1](0),1
+		myelin[i+1] connect node[i+1](0),1
+	}
+
+	axExcit = new SectionList()
+	axSame  = new SectionList()
+	hill axExcit.append()
+	iseg axExcit.append()
+	forsec "myelin" axSame.append()
+
+	Axon = 1
+
+  Log(LOG_TRACE, "Leaving method add_axon\n")
+}
+
+proc insert_channels() {	/* insert channels and set reversal potentials */
+  Log(LOG_TRACE, "Entering method insert_channels\n")
+
+  forall {
+    insert pas  /* generic conductance with reverse potential */
+    insert na
+    insert kv
+  }
+
+  // Vetter et al allowed the option to include Q, Ca, KCa, KM currents here.
+  // cmw:  DELETED Aug '11
+
+  forsec "myelin" uninsert kv /* no delayed rectifiers in myelin */
+
+  /* set reversal potentials */
+  forall e_pas = E_PAS
+  forall if(ismembrane("k_ion"))  ek  	    = Ek
+  forall if(ismembrane("na_ion")) ena	      = Ena
+  forall if(ismembrane("na_ion"))	vshift_na = -10.5
+  forall if(ismembrane("ca_ion")) {
+    eca = 140
+    ion_style("ca_ion", 0, 1, 0, 0, 0)
+    vshift_ca = 0
+  }
+  Log(LOG_TRACE, "Leaving method insert_channels\n")
+}
+
+/******** End functions from add_axon.hoc ***********/
+
+/**************************************************
+ * The following functions are based on the contents of Christina's
+ * init_model.hoc script.
+ */
+
+proc init_model() {
+  Log(LOG_TRACE, "Entering method init_model\n")
+	get_standard()		// initialize standard settings  (T, activespine ...)
+	act0_set()			// just use the Vetter et al default
+	active_set()
+	passive_set()
+  Log(LOG_TRACE, "Leaving method init_model\n")
+}
+
+/*
+ * Establishes globals for the simulations.
+ *   What does "substitutively" mean in this context?
+ */
+proc get_standard() {
+  Log(LOG_TRACE, "Entering method get_standard\n")
+  Iq_current = 0     // substitutively no Iq_current
+  Ca_current = 0     // substitutively no Ca_current
+  KCa_current = 0    // substitutively no KCa_current
+  Km_current = 0     // substitutively no Km_current
+  nonuniform_Rm = 0  // substitutively no nonuniform Rm
+  electrotonicL = 0  // substitutively physical lengths
+  activespine = 1    // model spines with active membrane
+  currentdist = 1    // status for which distlist to use
+  currentcell = 0    // number of currently active cell
+  simMode = 0        // 0 IClamp 1 Vclamp simulation
+  originx = 0.5      // where to add axon
+  Ek = -90
+  Ena = 60
+  cells = 1
+  swc = 0            // flag is turned on for Duke Southampton files
+  synthetic = 0      // synthetic neurons need longer simulation time
+
+  // stimulation (duration,delay,amplitude)
+  St_del = 0
+  St_amp = 1
+  St_dur = 9999
+
+  // simulation duration and dt.  Run for Sim_durI with Sim_dtI, then Sim_dur
+  // with Sim_dt
+  Sim_durI = 0
+  Sim_dtI = 0.25
+  Sim_dur = 15
+  Sim_dt = 0.025
+
+  // recording options (for display)
+  Rec_del = Sim_durI
+  Rec_dur = Sim_dur
+  Rec_dt = Sim_dt
+
+  // passive membrane properties, which aren't being changed in general
+  Rm_node = 50
+  Cm_myelin = 0.04
+
+  G_ca = .3  /* 13.8.98 */  // What does this mean?
+  G_kca = .1
+  G_km = 3
+  Rm_end = 0
+  Rm_half = 0
+  Rm_steep = 0
+  G_qq = 0.02  // Iq settings
+  Qq_end = 20
+  Qq_steep = 439
+  Qq_half   = 50
+
+  Log(LOG_TRACE, "Leaving method get_standard\n")
+}
+
+/* Zach Nature standard (kvz|naz) */
+proc act0_set() {
+  Log(LOG_TRACE, "Entering method act0_set\n")
+
+  Rax		= RA		/* passive membrane properties */
+	Rm         	= RM
+	C_m        	= CM
+	G_na		= NA_CONDUCTANCE  /* active membrane properties */
+	G_kv		= K_CONDUCTANCE
+	G_nanode	= 35000
+	G_kvnode	= 500
+  insert_channels()
+
+  Log(LOG_TRACE, "Leaving method act0_set\n")
+}
+
+proc active_set()  {	/* set active model parameters  */
+  Log(LOG_TRACE, "Entering method active_set\n")
+  g_na     = G_na
+  g_kv     = G_kv
+  g_nanode = G_nanode
+  g_kvnode = G_kvnode
+  g_qq		 = G_qq
+  qq_end	 = Qq_end
+  qq_steep = Qq_steep
+  qq_half	 = Qq_half
+
+  if (Iq_current)	forall {
+    gbar_qq = qq_end + \
+        (g_qq - qq_end) / (1 + exp((distance(0) - qq_half) / qq_steep))
+  }
+
+  forsec "soma" {
+    gbar_na	= g_na
+    gbar_kv = g_kv
+  }
+
+  forsec "myelin" gbar_na = g_na
+
+  forsec "node" {
+    gbar_na = g_nanode
+    gbar_kv = g_kvnode
+  }
+
+  forsec "hill" {
+    gbar_na = g_nanode
+    gbar_kv = g_kvnode
+  }
+
+  forsec "iseg" {
+    gbar_na = g_nanode
+    gbar_kv = g_kvnode
+  }
+
+  // Vetter et al used different settings here for spines vs. dendrites
+  forsec "dend" {
+    gbar_kv = g_kv*dendscale
+    gbar_na = g_na*dendscale
+    if (Iq_current) gbar_qq *= dendscale
+  }
+  Log(LOG_TRACE, "Leaving method active_set\n")
+}
+
+proc passive_set() { /* set passive properties	*/
+  Log(LOG_TRACE, "Entering method passive_set\n")
+  /* $1 	rm		*/
+  /* $2 	rax		*/
+  /* $3 	c_m 		*/
+  /* $4 	cm_myelin	*/
+  /* $5 	qq_end	 	*/
+  /* $6 	qq_steep 	*/
+  /* $7 	qq_half	 	*/
+
+  n = numarg()
+  if (n>0)  rm        = $1      else rm     	= Rm
+  if (n>1)  rax       = abs($2) else rax    	= Rax
+  if (n>2)  c_m       = $3      else c_m    	= C_m
+  if (n>3)  cm_myelin = $4      else cm_myelin	= Cm_myelin
+  if (n>4)  rm_node   = $5      else rm_node	= Rm_node
+  if (n>5)  rm_end    = $6      else rm_end	= Rm_end
+  if (n>6)  rm_steep  = $7      else rm_steep	= Rm_steep
+  if (n>7)  rm_half   = $8      else rm_half	= Rm_half
+
+  if (!nonuniform_Rm) rm_end = rm	 /* only nonuniform distr if nonuniform_Rm==1 */
+  forall {
+    if (rm - rm_end == 0) {
+      g_pas = 1 / rm
+    } else {
+      g_pas = 1 / (rm + (rm - rm_end) / \
+                        (1 + exp((distance(0) - rm_half) / rm_steep)))
+    }
+    cm    = c_m
+    Ra    = rax
+  }
+  forsec "myelin"  	cm    = cm_myelin
+  forsec "node"    	g_pas = 1 / rm_node
+  forsec "iseg"    	g_pas = 1 / rm	/* make sure iseg & hill have uniform rm */
+  forsec "hill"    	g_pas = 1 / rm
+  Log(LOG_TRACE, "Leaving method passive_set\n")
+}
+
+/******** End functions from init_model.hoc ***********/
+
+/**************************************************
+ * The following functions are based on the contents of Christina's
+ * rec_volt_justV.hoc script.
+ */
+
+/*
+ * Records a vector of AP times (apc) at the center of the currently accessed
+ * section, as well as the discrete simulation times (tVec) and soma voltage
+ * (vs).  The variables apc, tVec and vs are all global.
+ */
+proc set_dataVec() {
+  Log(LOG_TRACE, "Entering method set_dataVec\n")
+  spiketimes = new Vector()
+	apc = new APCount(0.5)
+	apc.record(spiketimes)
+  vs = new Vector()  // Voltage at soma
+	tVec = new Vector()  // Vector of time steps
+	tVec.record(&t)
+	vs.record(&soma.v(0.5))
+  Log(LOG_TRACE, "Leaving method set_dataVec\n")
+}
+
+/*************************************************************
+  volt2txt
+
+  Write time and somatic voltage vectors to a human-readable file named
+  '$s1_Vonly.txt'.
+
+  Arguments:
+    $s1	basename of output file '$s1_Vonly.txt'
+
+  The following data are written to the output file:
+
+  If stim exists, its amp, del, dur
+  time
+  soma voltage
+*************************************************************/
+proc volt2txt() {
+  Log(LOG_TRACE, "Entering method volt2txt\n")
+	zero = 0
+	fout = new File()
+	sprint(fname, "%s_Vonly.txt", $s1)
+  fout.wopen(fname)
+  printf("volt2bin in rec_volt_simple.hoc:  Opened recording file name ->%s<-, with $s1 = ->%s<-\n", \
+         fname, $s1)
+  if(name_declared("stim")) {
+    x = 1  //number of pulses
+    fout.printf("Voltage trace.  #pulses: %d amp:%f del:%f dur:%f\n", x, \
+                stim.amp, stim.del, stim.dur)
+    }
+	// set up all vectors for reading
+	set_dataVec()
+
+	init()
+	Log(LOG_TRACE, "Leaving method run()\n")
+	run()
+	printf("Ihold -> del: %f dur: %f, amp: %f\n", ihold.del, ihold.dur, ihold.amp)
+	printf("Stim -> del: %f dur: %f, amp: %f\n", stim.del, stim.dur, stim.amp)
+	Log(LOG_TRACE, "Leaving method run()\n")
+
+  // "vs" -> voltage at soma.  Global, defined in set_dataVec.
+  fout.printf("%d  # Vector size\n", vs.size())
+	vs.printf(fout)
+
+  fout.close()
+  Log(LOG_TRACE, "Leaving method volt2txt\n")
+}
+
+/*************************************************************
+  volt_nobin
+
+  Set up all the interesting vectors as in volt2txt(), but do
+  not write the binary file.
+*************************************************************/
+
+proc volt_nobin() {
+  Log(LOG_TRACE, "Entering method volt_nobin\n")
+	zero = 0
+
+	// set up all vectors for reading
+	set_dataVec()
+
+	init()
+	run()
+	if(apc.n > 1) {
+	  calcFR()
+  }
+  Log(LOG_TRACE, "Leaving method volt_nobin\n")
+}
+
+/********************************************************
+  calcFR_bounds()
+
+  calculate the mean FR and CV during a specified time
+  window.
+
+  Globals:
+    apc: "Action Potential Count", created in setDataVec.
+
+  Arguments:
+    float $1  left endpoint of time window
+    float $2  right endpoint of time window
+********************************************************/
+proc calcFR_bounds() { local k, tmx
+  Log(LOG_TRACE, "Entering method calcFR_bounds\n")
+  objref isi, fr  // Globals
+
+  isi = new Vector()
+  fr = new Vector()
+
+  printf("APC: %f\n", apc.n)
+  printf("Spiketimes size: %f\n", spiketimes.size())
+
+  for(k = 0; k < apc.n - 1; k = k + 1) {
+    if( spiketimes.x[k] >= $1 && spiketimes.x[k+1] <= $2) {
+      isi.append(spiketimes.x[k + 1] - spiketimes.x[k])
+      fr.append(1000 / isi.x[isi.size - 1])
+    }
+  }
+  if(fr.size == 0) {
+    printf("Found %d spikes; FR mean = 0, stdev 0, CV 0\n", apc.n)
+    return
+  }
+  if(fr.size > 2) {
+    print "FR mean = ", fr.mean, " stdev ", fr.stdev, " CV ", fr.stdev / fr.mean
+  } else {
+    printf("Found %d spikes; FR mean = %.1f\n", apc.n, fr.mean)
+  }
+  Log(LOG_TRACE, "Leaving method calcFR_bounds\n")
+}
+
+/******************************************************************************
+  eval_FRandCV()
+
+  Evaluates the firing rate and coefficient of variation for a time series.
+
+  Globals:
+    stim must be defined
+
+  Inputs:`
+	  float  $1	start time for FR / CV window
+    float  $2	end time for FR / CV window
+    float  $3	amplitude of current injection
+    strdef $s4 file basename
+    int    $5	0 or 1, write .Vbin file?
+
+*******************************************************************************/
+func eval_FRandCV() {  local old_tstop, old_dur, mnFR
+  Log(LOG_TRACE, "Entering method eval_FRandCV\n")
+  old_tstop = tstop
+  old_dur = stim.dur
+
+  tstop = $2
+  stim.amp = $3
+  if(stim.dur == 0) {
+    stim.dur = tstop
+  }
+
+  if($5) {
+    volt2txt($s4)
+    Log(LOG_TRACE, "\tDone volt2bin()\n")
+  } else {
+    volt_nobin()
+  }
+
+  calcFR_bounds($1, $2)
+  if($5) {
+    Log(LOG_TRACE, "\tDone calcFR_bounds() \n")
+  }
+
+  tstop  = old_tstop
+  stim.dur = old_dur
+
+  if(fr.size > 0) {
+    mnFR = fr.mean
+  } else {
+    mnFR = 0
+  }
+
+  return mnFR
+  Log(LOG_TRACE, "Leaving method eval_FRandCV\n")
+}
+
+/******** End functions from rec_volt_justV.hoc ***********/
+
+/**************************************************
+ * The following functions are based on the contents of Christina's
+ * aux_procs.hoc script
+ */
+
+// $1: Basic value for gbar_na
+// $2: Multiplicative factor to apply to gbar_na in the axon hillock and initial segment.
+proc setGNaWithAxonHillockMultiplier() {
+  Log(LOG_TRACE, "Entering method setGNaWithAxonHillockMultiplier\n")
+  soma gbar_na = $1
+  forsec "dend" gbar_na = $1
+  forsec axSame gbar_na = $1
+  forsec axExcit gbar_na = $1 * $2
+  Log(LOG_TRACE, "Leaving method setGNaWithAxonHillockMultiplier\n")
+}
+
+// $1: Basic value for gbar_kv
+// $2: Multiplicative factor to apply to gbar_kv in the axon hillock and initial segment.
+proc setKvWithAxonHillockMultiplier() {
+  Log(LOG_TRACE, "Entering method setKvWithAxonHillockMultiplier\n")
+	forall {
+		if(ismembrane("kv")) gbar_kv = $1
+	}
+	forsec axExcit gbar_kv = $1 * $2
+  Log(LOG_TRACE, "Leaving method setKvWithAxonHillockMultiplier\n")
+}
+
+proc set_gpas() {
+  Log(LOG_TRACE, "Entering method set_gpas\n")
+  forall {
+    ifsec "node" continue
+    g_pas = $1
+	}
+  Log(LOG_TRACE, "Entering method set_gpas\n")
+}
+
+proc set_epas() {
+  Log(LOG_TRACE, "Entering method set_epas_negative\n")
+  forall e_pas = $1
+  Log(LOG_TRACE, "Leaving method set_epas_negative\n")
+}
+
+/******** End functions from aux_procs.hoc ***********/
+
+/**************************************************
+ * The following function is based on the contents of Christina's
+ * custominit.hoc script
+ */
+
+proc init() { local dtsav, tstopsav, temp
+  Log(LOG_TRACE, "Entering method init()\n")
+  finitialize(v_init)
+  dtsav = dt
+  dt = 0.05  // or something larger if stability and accuracy are OK
+  t = -1e4
+  tstopsav = tstop
+  tstop = t + INITDUR
+  temp = cvode.active()
+  if (temp != 0) {
+    cvode.active(0)
+  }
+  voltageClamp.rs = 0.01
+  voltageClamp.toff = 0
+  voltageClamp.amp = V0
+
+  while (t < tstop) {
+    fadvance()
+  }
+
+  IHOLD = voltageClamp.i
+  printf("In custom init.  V0 = %f INITDUR = %f IHOLD = %f\n", V0, INITDUR, IHOLD)
+
+  voltageClamp.rs = 1e9 // so the current it delivers during a run is miniscule
+    // this is a "suspenders & belt" approach because Vsource[0].toff = 0
+    // should prevent it from delivering nonzero current when t>0.
+
+  // restore simulation parameters
+  dt = dtsav
+  tstop = tstopsav
+  t = 0
+
+  // restore and re-init cvode if necessary
+  if (temp!=0) {
+    cvode.active(1)
+    cvode.re_init()
+  } else {
+    fcurrent()
+  }
+  frecord_init()
+  Log(LOG_TRACE, "Leaving method init()\n")
+}
+
+/******** End functions from custominit.hoc ***********/
+
+/**************************************************
+ * The following function is based on the contents of Christina's
+ * simulateCurrentInj.hoc script
+ */
+
+/*******************
+	simulateCurrentStep_withIHold
+
+	Take the model with its currently defined parameters, and simulate a current step of
+	specified size.  Uses the function eval_FRandCV(), found in rec_volt_justV.hoc
+
+	The amperage specified in parameter 3 is the *total* current that should be
+	injected into the neuron, including both the holding current and the test
+	current.  Thus, if argument 3 is 130 nA, and the holding current is 3 nA, then
+	the "ihold" IClamp object will have an amp of 3, and the "stim" IClamp object
+	will have an amp of 127.  Thus all neurons receive the same total current
+	injection, even if they require different holding currents to bring their
+	resting potential to a standard value.
+
+	Arguments:
+	  $1	time at which the current step begins
+		$2	time at which the current step ends
+		$3	total amount of current to inject, in nA
+		$4	1 or 0:  create binary file with (t,V) data?
+		$s5	file name for output (see readNRNbin_Vonly.m to read this in MATLAB)
+*******************/
+proc simulateCurrentStep_withIHold() { local firingRate, startWindow, endWindow
+  Log(LOG_TRACE, "Entering method simulateCurrentStep_withIHold()\n")
+
+  ihold.del = 0
+  ihold.dur = 1e9
+  // Make sure that IHOLD has been computed.  Note that, in order for this to
+  // work, ihold the IClamp must have already been set up to have an 'infinite'
+  // duration, because it's used in the computation of IHOLD the value.  (The
+  // amplitude of ihold the IClamp is then set to match IHOLD the value in the
+  // code below.)
+  init()
+
+  ihold.amp = IHOLD
+//  print "Done ihold = ", IHOLD
+
+  stim.del = $1
+  stim.dur = $2
+
+  startWindow = $1 + 200  // Just for testing
+  endWindow = $2
+  firingRate = eval_FRandCV($1, $2, $3 - ihold.amp, $s5, $4, 1)
+//  firingRate = eval_FRandCV($1, $2, $3, $s5, $4, 1)
+  printf("Mean firing rate: %f\n", firingRate)
+  Log(LOG_TRACE, "Leaving method simulateCurrentStep_withIHold()\n")
+}
+
+/******** End functions from simulateCurrentInj.hoc ***********/
+
+/*
+ * For the specified neuron, applies a stim current of -50pA to 50pA, at
+ * 10pA intervals, in addition to a holding current that would by itself
+ * maintain the neuron at a standardized potential specified by the global
+ * V0.  At each stim current, the simulation progresses to steady state, which
+ * is assumed to occur after 1000 ms, and then the membrane voltage and input
+ * current are printed.  This produces a table of data that can be fit to
+ * compute the input resistance of the cell.
+ * (Procedure from Luebke and Rosene, J. Comp. Neurol. 2003)
+ *
+ * Arguments:
+ */
+proc printInputResistanceValuesForNeuron() { local test_amp
+  stim.amp = 0
+
+  // Set up the ihold current clamp so it can be used to compute the holding
+  // current.
+  ihold.del = 0
+  ihold.dur = 1e9
+
+  // Compute the holding current as a side effect.  The result is stored in the
+  // global IHOLD
+  init()
+  ihold.amp = IHOLD
+
+  stim.del = 100
+  stim.dur = 1100
+
+  tstop = 1100
+
+  strdef test_amp_string
+  // Neuron's IClamp is measured in nA, the test current is in pA.
+  for (test_amp = -0.05; test_amp < 0.06; test_amp = test_amp + 0.01) {
+    sprint(test_amp_string, "%.2f", test_amp)
+    stim.amp = test_amp
+    volt2txt(test_amp_string)
+    printf("%s\t%f\n", test_amp_string, soma.v(0.5))
+  }
+
+}
+
+
+proc prepNeuronForSimulation() {
+  strdef neuron_path
+  neuron_path = $s1
+
+  printf("Neuron path: %s\n", neuron_path)
+
+  IHOLD = 0
+
+  Log(LOG_INFO, "About to read cell\n")
+  readcell(neuron_path, 3)  // 3: apical and basal both present
+  Log(LOG_INFO, "Done reading cell\n")
+
+  objref stim
+  soma {
+    Log(LOG_INFO, "Creating both stim and ihold\n")
+    stim = new IClamp(0.5)
+    ihold = new IClamp(0.5)
+  }
+  // Per Christina; this prevents interference during initialization.
+  stim.del = 1e9
+
+  // Voltage clamp, used to determine the holding current necessary to keep the
+  // neuron at V0.
+  soma {
+    voltageClamp = new Vsource(0.5)
+  }
+  voltageClamp.rs = 1  // Internal resistance, megaohm.
+  voltageClamp.toff = 0  // Time at which the voltageClamp ceases
+  voltageClamp.amp = 0  // Target voltage for the clamp (the variable name is a
+                        // bit of a misnomer.
+
+  /**************************************************
+  * The following is taken from the global initialization of Christina's
+  * aux_procs.hoc script.
+  */
+
+  init_model()
+  add_axon()
+  set_dataVec()
+
+  forall cm = CM
+  forall Ra = RA
+  forall e_pas = E_PAS
+  objref ptbVec // Perturbation vector?
+
+
+  /******** End global initialization of aux_procs.hoc ***********/
+
+  // Ensure a single-compartment soma
+  soma {
+    nseg = 1
+    // Ensures that all neurons have the same size soma, so that we're comparing
+    // dendritic effects alone.
+    L = STD_SOMA_RADIUS * 2
+    diam = STD_SOMA_RADIUS * 2
+
+    printf("Using soma radius of %f\n", STD_SOMA_RADIUS)
+  }
+
+  /**************************************************
+  * The following is taken from Christina's main_PFCwSEClamp_forPCoskren.hoc
+  * script, with bits and pieces extracted from or set based on the scripts
+  * rigPFCmod.ses and vsrc.ses.
+  */
+  // Parameters tuned by Christina Weaver, Nov 2011, to fit representative physiology of one Jennie's young PFC neurons.
+  set_gpas(G_PAS)
+  setGNaWithAxonHillockMultiplier(200,1e3)
+  setKvWithAxonHillockMultiplier(200,16.667)
+  set_epas(E_PAS)
+
+}
+
+prepNeuronForSimulation("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/HocFiles/Aug3a-all-apicalbasal-spiny.hoc")
+//  simulateCurrentStep_withIHold(100, 1100, 0, 1, "tmp")
+// printInputResistanceValuesForNeuron(neuron_path)
+
+// quit()
+
+simulateCurrentStep_withIHold(100, 1100, 0.330000, 1, "tmp")
+quit()

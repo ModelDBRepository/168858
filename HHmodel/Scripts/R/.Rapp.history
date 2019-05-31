@@ -1,0 +1,15 @@
+pwd
+cwd
+wd
+ls
+data <- read.table("PhysiologyAndMorphology.csv")
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData")
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData.csv")
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData/PhysiologyAndMorphology.csv")
+data
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData/PhysiologyAndMorphology.csv", header="TRUE")
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData/PhysiologyAndMorphology.csv", header=TRUE)
+data
+data$cellName
+data <- read.table("/Users/pcoskren-home/Documents/Projects/MorphologyPaperTwo/EmpiricalData/PhysiologyAndMorphology.csv", header=TRUE, sep=",")
+data
